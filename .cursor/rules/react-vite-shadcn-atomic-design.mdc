@@ -1,0 +1,159 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: 
+globs: src/components/(atoms|molecules|organisms|templates)/.*, *.{tsx,ts}
+alwaysApply: false
+---
+ # React Vite Shadcn UI Atomic Design Pattern
+
+Guidelines for implementing the Atomic Design pattern in React applications using Shadcn UI.
+
+<rule>
+name: react_vite_shadcn_atomic_design
+description: Enforces Atomic Design principles for component composition and relationships with Shadcn UI
+filters:
+  - type: file_extension
+    pattern: "*.{tsx,ts}"
+  - type: directory
+    pattern: "src/components/(atoms|molecules|organisms|templates)/.*"
+  - type: event
+    pattern: "file_create|file_edit"
+actions:
+  - type: suggest
+    message: |
+      ## Atomic Design Pattern Guidelines with Shadcn UI
+      - **Primary Reference**: [atomic-design.md](mdc:docs/react-vite-shadcn-atomic-design/atomic-design.md)
+      Follow the Atomic Design principles with Shadcn UI compon  1. **Atoms**: Base Shadcn UI components and primitive elements
+         - Shadcn UI base components (Button, Input, Label, etc.)
+         - Typography elements (h1, p using cn utility)
+         - Icons (Lucide icons)
+         - Basic UI elements (Separator, Badge)
+      
+      2. **Molecules**: Simple combinations of Shadcn UI components
+         - Form fields (combining Label, Input, and FormMessage)
+         - Card with header and content
+         - ComboBox with label
+         - Dialog with trigger
+         - Dropdown menu with items
+      
+      3. **Organisms**: Complex UI sections
+         - Forms with multiple form fields
+         - Navigation bars with dropdowns
+         - Data tables with sorting and filtering
+         - Complex cards with multiple interactive elements
+         - Sidebar with navigation items
+      
+      4. **Templates**: Page-level layouts
+         - Dashboard layouts
+         - Authentication page layouts
+         - Settings page layouts
+         - Profile page layouts
+      
+      Key principles:
+      - Use Shadcn UI's built-in components as atoms whenever possible
+      - Leverage the cn utility for consistent styling
+      - Follow Shadcn UI's composition patterns (e.g., Slot patterns)
+      - Maintain consistent theming using the tailwind.config.js
+      
+      Component organization:
+      ```
+      src/
+      ├── components/
+      │   ├── atoms/
+      │   │   ├── ui/ (shadcn components)
+      │   │   └── custom/ (custom atomic components)
+      │   ├── molecules/
+      │   ├── organisms/
+      │   └── templates/
+      ```
+
+examples:
+  - input: |
+      // ❌ Incorrect atom implementation
+      // src/components/atoms/Button/CustomButton.tsx
+      const CustomButton = ({ children, variant, ...props }) => {
+        return (
+          <div className="custom-button-wrapper">
+            <button 
+              className={`custom-btn-${variant}`}
+              {...props}
+            >
+              {children}
+            </button>
+          </div>
+        );
+      };
+    output: |
+      ✅ Correct implementation using Shadcn UI
+      
+      ```tsx
+      import { Button } from "@/components/atoms/ui/button"
+      import { cn } from "@/lib/utils"
+      
+      const CustomButton = ({ 
+        children, 
+        variant = "default",
+        className,
+        ...props 
+      }) => {
+        return (
+          <Button
+            variant={variant}
+            className={cn(className)}
+            {...props}
+          >
+            {children}
+          </Button>
+        );
+      };
+      ```
+
+  - input: |
+      // ❌ Incorrect molecule implementation
+      // src/components/molecules/FormField/FormField.tsx
+      const FormField = ({ label, type, value, onChange }) => {
+        return (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{label}</label>
+            <input 
+              type={type} 
+              value={value} 
+              onChange={onChange} 
+              className="border rounded p-2"
+            />
+          </div>
+        );
+      };
+    output: |
+      ✅ Correct implementation using Shadcn UI form components
+      
+      ```tsx
+      import { FormField, FormItem, FormLabel, FormControl } from "@/components/atoms/ui/form"
+      import { Input } from "@/components/atoms/ui/input"
+      
+      const CustomFormField = ({ form, name, label }) => {
+        return (
+          <FormField
+            control={form.control}
+            name={name}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{label}</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        );
+      };
+      ```
+
+metadata:
+  priority: high
+  version: 1.0
+</rule> 

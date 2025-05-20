@@ -1,0 +1,26 @@
+# MongoDB Atlas Connection String
+MONGODB_URI=mongodb+srv://hk:harsh12345@marketing-automation.ikalmut.mongodb.net/?retryWrites=true&w=majority&appName=marketing-automation
+
+# Application Environment
+NODE_ENV=development
+
+# Server Configuration
+PORT=5000
+
+# Authentication
+JWT_SECRET=your_jwt_secret_key_should_be_at_least_32_characters_long
+JWT_EXPIRES_IN=7d
+JWT_REFRESH_EXPIRES_IN=30d
+
+# CORS Configuration
+CORS_ORIGIN=http://localhost:5173
+COOKIE_SECRET=cookie_secret_for_signed_cookies
+
+# Frontend URL
+FRONTEND_URL=http://localhost:5173
+API_URL=http://localhost:5000/api
+
+# Email Service (for notifications)
+EMAIL_USER=your_email@example.com
+EMAIL_PASSWORD=your_email_password
+EMAIL_FROM=noreply@yourdomain.com 

@@ -1,0 +1,155 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: Responsive Design Standards for Marketing Automation Application
+globs: src/components/**/*.{tsx,ts}
+alwaysApply: true
+---
+# Responsive Design Standards
+
+Guidelines for ensuring responsive design across all device sizes in the Marketing Automation Application.
+
+<rule>
+name: responsive_design_standards
+description: Enforces responsive design principles for all components and pages
+filters:
+  - type: directory
+    pattern: "src/components/**/*.{tsx,ts}"
+  - type: event
+    pattern: "file_create|file_edit"
+actions:
+  - type: suggest
+    message: |
+      ## Responsive Design Guidelines
+      
+      Every component and page must follow these responsive design principles:
+
+      1. **Breakpoint Standards**
+      ```typescript
+      // Use Tailwind's default breakpoints
+      const breakpoints = {
+        'sm': '640px',    // Small devices (phones)
+        'md': '768px',    // Medium devices (tablets)
+        'lg': '1024px',   // Large devices (laptops)
+        'xl': '1280px',   // Extra large devices (desktops)
+        '2xl': '1536px'   // Extra extra large devices
+      }
+      ```
+
+      2. **Required Responsive Practices**:
+         - Implement mobile-first design approach
+         - Use fluid typography (responsive font sizes)
+         - Ensure touch-friendly tap targets (min 44px)
+         - Test on real devices
+         - Implement responsive images
+         - Use flexible grid systems
+         - Handle orientation changes
+
+      3. **Component Requirements**:
+         - All components must be tested across breakpoints
+         - No horizontal scrollbars on any screen size
+         - Maintain content hierarchy across sizes
+         - Ensure proper spacing and padding adjustments
+         - Handle text wrapping appropriately
+
+      4. **Layout Guidelines**:
+         ```tsx
+         // Example of proper responsive layout
+         <div className="
+           grid
+           grid-cols-1
+           sm:grid-cols-2
+           md:grid-cols-3
+           lg:grid-cols-4
+           gap-4
+           p-4 sm:p-6 md:p-8
+         ">
+         ```
+
+      5. **Testing Requirements**:
+         - Test on Chrome DevTools device simulator
+         - Test on physical devices
+         - Test in both portrait and landscape
+         - Verify touch interactions
+         - Check for content reflow
+
+examples:
+  - input: |
+      // ❌ Non-responsive component
+      const Header = () => {
+        return (
+          <div className="w-[1200px] px-4">
+            <h1 className="text-2xl">Dashboard</h1>
+          </div>
+        );
+      };
+    output: |
+      ✅ Responsive component
+      ```tsx
+      const Header = () => {
+        return (
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold">
+              Dashboard
+            </h1>
+          </div>
+        );
+      };
+      ```
+
+  - input: |
+      // ❌ Fixed-size image
+      <img 
+        src="/logo.png" 
+        width="500" 
+        height="300" 
+      />
+    output: |
+      ✅ Responsive image
+      ```tsx
+      <img
+        src="/logo.png"
+        className="w-full h-auto max-w-md object-cover"
+        srcSet="/logo-small.png 300w, /logo-medium.png 600w, /logo.png 1200w"
+        sizes="(max-width: 640px) 300px, (max-width: 1024px) 600px, 1200px"
+        alt="Logo"
+      />
+      ```
+
+  - input: |
+      // ❌ Non-responsive grid
+      <div className="grid grid-cols-4 gap-4">
+        {items.map(item => (
+          <Card key={item.id} {...item} />
+        ))}
+      </div>
+    output: |
+      ✅ Responsive grid
+      ```tsx
+      <div className="
+        grid
+        grid-cols-1
+        sm:grid-cols-2
+        md:grid-cols-3
+        lg:grid-cols-4
+        gap-4
+        sm:gap-6
+        lg:gap-8
+      ">
+        {items.map(item => (
+          <Card 
+            key={item.id} 
+            className="w-full h-full"
+            {...item} 
+          />
+        ))}
+      </div>
+      ```
+
+metadata:
+  priority: high
+  version: 1.0
+</rule> 

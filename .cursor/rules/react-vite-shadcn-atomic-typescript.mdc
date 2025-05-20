@@ -1,0 +1,70 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: React Vite Shadcn UI TypeScript Guidelines
+globs: *.{ts,tsx}
+alwaysApply: false
+---
+# React Vite Shadcn UI TypeScript Guidelines
+
+TypeScript best practices for react-vite-shadcn-atomic projects.
+
+<rule>
+name: react_vite_shadcn_atomic_typescript
+description: Enforces TypeScript best practices for react-vite-shadcn-atomic projects
+filters:
+  - type: file_extension
+    pattern: "*.{ts,tsx}"
+  - type: event
+    pattern: "file_create|file_edit"
+actions:
+  - type: suggest
+    message: |
+      ## TypeScript Guidelines
+      
+      Follow the TypeScript best practices defined in our documentation:
+      
+      - **Primary Reference**: [typescript.md](mdc:docs/react-vite-shadcn-atomic-design/typescript.md)
+      
+      Key TypeScript principles:
+      
+      1. Always use typed interfaces for component props
+      2. Type all React hooks (useState, useRef, etc.)
+      3. Use union types for constrained values
+      4. Properly type event handlers
+      5. Add return types to functions and custom hooks
+      
+      See the documentation for complete implementation examples and patterns.
+
+examples:
+  - input: |
+      // Component without proper typing
+      const Button = (props) => {
+        return (
+          <button 
+            className={`btn-${props.variant}`}
+            onClick={props.onClick}
+          >
+            {props.children}
+          </button>
+        );
+      };
+    output: |
+      ❌ Missing TypeScript type definitions
+   yping as described in [TypeScript Guidelines](mdc:../docs/react-vite-shadcn-atomic/typescript.md#react-component-types)
+
+  - input: |
+   g
+      const [value, setValue] = useState();
+    output: |
+      ❌ useState should be typed
+      
+      Follow our [TypeScript Hooks Guidelines](mdc:../docs/react-vite-shadcn-atomic/typescript.md#hooks-and-custom-hooks)
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>

@@ -1,0 +1,63 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: React Vite Shadcn UI Atomic Design Structure
+globs: *.{tsx,ts}
+alwaysApply: false
+---
+# React Vite Shadcn UI Atomic Design Structure
+
+Guidelines for project structure following react-vite-shadcn-atomic principles.
+
+<rule>
+name: react_vite_shadcn_atomic_structure
+description: Enforces project structure guidelines following react-vite-shadcn-atomic principles
+filters:
+  - type: file_extension
+    pattern: "*.{tsx,ts}"
+  - type: event
+    pattern: "file_create|file_edit"
+actions:
+  - type: suggest
+    message: |
+      ## Project Structure Guidelines
+
+      Your React component should follow the structural guidelines defined in our documentation:
+      
+      - **Primary Reference**: [project-structure.md](mdc:docs/react-vite-shadcn-atomic-design/project-structure.md)
+      
+      Key structural points:
+      
+      1. Components follow Atomic Design pattern (atoms → molecules → organisms → templates → pages)
+      2. Directory structure follows `src/components/{atoms|molecules|organisms|templates}` pattern
+      3. Component files require consistent structure with separate files for styles and tests
+      4. File naming uses PascalCase for components, camelCase for utilities
+
+examples:
+  - input: |
+      # Creating a new button component
+      FILE="src/components/atoms/Button/Button.tsx"
+    output: |
+      ✅ Correct location for an atom component
+      
+      Remember to include:
+      - src/components/atoms/Button/Button.styles.ts
+      - src/components/atoms/Button/Button.test.tsx
+      - src/components/atoms/Button/index.ts
+
+  - input: |
+      # Creating a component in wrong location
+  x"
+    output: |
+      ❌ Incorrect location
+      
+      Atoms should be in src/components/atoms/Button/Button.tsx
+      Follow the structure in [Project Structure Guidelines](mdc:../docs/react-vite-shadcn-atomic/project-structure.md)
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>

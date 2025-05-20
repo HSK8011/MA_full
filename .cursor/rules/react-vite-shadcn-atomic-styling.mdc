@@ -1,0 +1,79 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: React Vite Shadcn UI Styling Guidelines
+globs: *.{ts,tsx}
+alwaysApply: false
+---
+# React Vite Shadcn UI Styling Guidelines
+
+Styling guidelines for react-vite-shadcn-atomic projects using Shadcn UI and Emotion.
+
+<rule>
+name: react_vite_shadcn_atomic_styling
+description: Enforces styling best practices for react-vite-shadcn-atomic projects
+filters:
+  - type: file_extension
+    pattern: "*.{ts,tsx}"
+  - type: file_name
+    pattern: ".*\\.styles\\.ts$"
+  - type: event
+    pattern: "file_create|file_edit"
+actions:
+  - type: suggest
+    message: |
+      ## Styling Guidelines
+      
+      Follow the styling practices defined in our documentation:
+      
+      - **Primary Reference**: [styling.md](mdc:docs/react-vite-shadcn-atomic-design/styling.md)
+      
+      Key styling principles:
+      
+      1. Use Emotion for styling Shadcn UI components
+      2. Create separate `.styles.ts` files for component styling
+      3. Use theme values instead of hard-coded values
+      4. Apply responsive design using theme breakpoints
+      
+      See the complete documentation for detailed implementation examples.
+      
+      Note: We use Emotion (not styled-components) for better SSR compatibility with Shadcn UI.
+
+examples:
+  - input: |
+      // Inline styles (avoid this)
+      const Button = ({ children }) => {
+        return (
+          <button 
+            style={{ 
+              backgroundColor: 'blue', 
+              color: 'white', 
+              padding: '8px 16px' 
+            }}
+          >
+            {children}
+          </button>
+        );
+      };
+    output: |
+      ❌ Avoid inline stse the pattern described in [Styling Guidelines](mdc:../docs/react-vite-shadcn-atomic/styling.md#component-styling-approaches)
+
+  - input: |
+      // Hard-coded values (avoid this)
+      export const StyledCard = styled('div')`
+        background-color: #ffffff;
+        margin: 16px;
+        padding: 24px;
+        bo    `;
+    output: |
+      ❌ Don't use hard-coded values
+      
+      Follow the theme usage pattern in [Theme Configuration](mdc:../docs/react-vite-shadcn-atomic/styling.md#theme-configuration)
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>

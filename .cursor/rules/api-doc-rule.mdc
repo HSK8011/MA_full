@@ -1,0 +1,183 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: API Documentation Standards for Marketing Automation Application
+globs: src/api/**/*.{ts,tsx}
+alwaysApply: true
+---
+# API Documentation Standards
+
+Guidelines for documenting APIs in the Marketing Automation Application.
+
+<rule>
+name: api_documentation_standards
+description: Enforces comprehensive API documentation for all endpoints
+filters:
+  - type: directory
+    pattern: "src/api/**/*.{ts,tsx}"
+  - type: event
+    pattern: "file_create|file_edit"
+actions:
+  - type: suggest
+    message: |
+      ## API Documentation Guidelines
+      
+      For each API endpoint, create a corresponding documentation file in the `docs/api` directory following this structure:
+      
+      ```markdown
+      # [API Name]
+
+      ## Overview
+      Brief description of what this API does.
+
+      ## Endpoint
+      `[HTTP Method] /api/path/to/endpoint`
+
+      ## Authentication
+      Required authentication method (if any).
+
+      ## Request Parameters
+      ### Headers
+      | Name | Type | Required | Description |
+      |------|------|----------|-------------|
+      | ... | ... | ... | ... |
+
+      ### Query Parameters
+      | Name | Type | Required | Description |
+      |------|------|----------|-------------|
+      | ... | ... | ... | ... |
+
+      ### Body Parameters
+      | Name | Type | Required | Description |
+      |------|------|----------|-------------|
+      | ... | ... | ... | ... |
+
+      ## Response
+      ### Success Response
+      - Status Code: [code]
+      ```json
+      {
+        // Example response
+      }
+      ```
+
+      ### Error Responses
+      - Status Code: [code]
+      ```json
+      {
+        "error": "Error message"
+      }
+      ```
+
+      ## Example Usage
+      ```typescript
+      // Example API call
+      ```
+
+      ## Notes
+      Any additional information, limitations, or considerations.
+      ```
+
+      Key documentation principles:
+      1. Every API endpoint must have corresponding documentation
+      2. Documentation must be updated when API changes
+      3. Include all possible response scenarios
+      4. Provide working example code
+      5. Document rate limits and authentication requirements
+
+examples:
+  - input: |
+      // API without documentation
+      export const createPost = async (data) => {
+        const response = await fetch('/api/posts', {
+          method: 'POST',
+          body: JSON.stringify(data)
+        });
+        return response.json();
+      };
+    output: |
+      ❌ Missing API documentation
+      
+      Create corresponding documentation in docs/api/posts/create-post.md:
+      
+      ```markdown
+      # Create Post API
+
+      ## Overview
+      Creates a new social media post.
+
+      ## Endpoint
+      `POST /api/posts`
+
+      ## Authentication
+      Requires valid JWT token.
+
+      ## Request Parameters
+      ### Headers
+      | Name | Type | Required | Description |
+      |------|------|----------|-------------|
+      | Authorization | string | Yes | JWT token |
+
+      ### Body Parameters
+      | Name | Type | Required | Description |
+      |------|------|----------|-------------|
+      | content | string | Yes | Post content |
+      | platforms | string[] | Yes | Target social platforms |
+      | scheduledTime | ISO8601 | No | Scheduled posting time |
+
+      ## Response
+      ### Success Response
+      - Status Code: 201
+      ```json
+      {
+        "id": "post-123",
+        "content": "Hello world",
+        "platforms": ["twitter", "facebook"],
+        "scheduledTime": "2024-03-20T15:00:00Z",
+        "status": "scheduled"
+      }
+      ```
+      ```
+
+  - input: |
+      // API endpoint without error documentation
+      app.post('/api/teams', createTeam);
+    output: |
+      ❌ Incomplete API documentation
+      
+      Add error scenarios to docs/api/teams/create-team.md:
+      
+      ```markdown
+      ### Error Responses
+      - Status Code: 400
+      ```json
+      {
+        "error": "Invalid team data",
+        "details": ["Team name is required"]
+      }
+      ```
+      
+      - Status Code: 401
+      ```json
+      {
+        "error": "Unauthorized",
+        "message": "Valid authentication required"
+      }
+      ```
+      
+      - Status Code: 403
+      ```json
+      {
+        "error": "Forbidden",
+        "message": "Insufficient permissions to create team"
+      }
+      ```
+      ```
+
+metadata:
+  priority: high
+  version: 1.0
+</rule> 
