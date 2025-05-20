@@ -186,7 +186,7 @@ export const updateNotificationPreferences = async (req: AuthRequest, res: Respo
   try {
     const userId = req.userId;
     const { preferences } = req.body;
-    
+
     if (!userId) {
       res.status(401).json({ message: 'Unauthorized - User ID not found in request' });
       return;
@@ -199,12 +199,27 @@ export const updateNotificationPreferences = async (req: AuthRequest, res: Respo
     
     // Update each preference
     const updatePromises = preferences.map(async (pref) => {
+      // Create an update object with only the fields that are provided
+      const updateFields: any = {};
+      
+      if (pref.emailEnabled !== undefined) {
+        updateFields.emailEnabled = pref.emailEnabled;
+      }
+      
+      if (pref.emailFrequency !== undefined) {
+        updateFields.emailFrequency = pref.emailFrequency;
+      } else if (pref.emailEnabled !== undefined) {
+        // If emailEnabled is toggled but no frequency is provided, set a default
+        updateFields.emailFrequency = pref.emailEnabled ? 'daily' : 'never';
+      }
+      
+      if (pref.desktopEnabled !== undefined) {
+        updateFields.desktopEnabled = pref.desktopEnabled;
+      }
+      
       return NotificationPreference.findOneAndUpdate(
         { userId, _id: pref._id },
-        { 
-          emailEnabled: pref.emailEnabled,
-          desktopEnabled: pref.desktopEnabled
-        },
+        updateFields,
         { new: true }
       );
     });

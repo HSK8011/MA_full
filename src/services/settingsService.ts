@@ -4,6 +4,7 @@ import type {
   ProfileData, 
   SecurityData, 
   NotificationPreference,
+  NotificationPreferenceUpdate,
   Integration,
   User,
   QueueTime
@@ -66,8 +67,8 @@ class SettingsService {
     }
   }
 
-  async updateNotifications(preferences: NotificationPreference[]): Promise<{ 
-    notificationPreferences: NotificationPreference[] 
+  async updateNotifications(preferences: NotificationPreferenceUpdate[]): Promise<{ 
+    preferences: NotificationPreference[] 
   }> {
     try {
       const response = await api.put(`${this.baseUrl}/notifications`, { preferences });

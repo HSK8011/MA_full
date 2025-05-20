@@ -15,10 +15,20 @@ export interface NotificationPreference {
   _id: string;
   userId: string;
   type: string;
-  enabled: boolean;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'never';
+  emailEnabled: boolean;
+  emailFrequency: 'daily' | 'weekly' | 'monthly' | 'never';
+  desktopEnabled: boolean;
+  description: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Used for partial updates to notification preferences
+export interface NotificationPreferenceUpdate {
+  _id: string;
+  emailEnabled?: boolean;
+  emailFrequency?: 'daily' | 'weekly' | 'monthly' | 'never';
+  desktopEnabled?: boolean;
 }
 
 export interface Integration {

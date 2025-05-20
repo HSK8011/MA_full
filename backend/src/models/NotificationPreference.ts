@@ -3,8 +3,10 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface INotificationPreference extends Document {
   userId: mongoose.Schema.Types.ObjectId;
   type: string;
-  enabled: boolean;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'never';
+  emailEnabled: boolean;
+  emailFrequency: 'daily' | 'weekly' | 'monthly' | 'never';
+  desktopEnabled: boolean;
+  description: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,14 +21,22 @@ const notificationPreferenceSchema = new Schema<INotificationPreference>({
     type: String,
     required: true
   },
-  enabled: {
+  emailEnabled: {
     type: Boolean,
     default: true
   },
-  frequency: {
+  emailFrequency: {
     type: String,
     enum: ['daily', 'weekly', 'monthly', 'never'],
     default: 'daily'
+  },
+  desktopEnabled: {
+    type: Boolean,
+    default: true
+  },
+  description: {
+    type: String,
+    required: true
   }
 }, {
   timestamps: true

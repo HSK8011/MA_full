@@ -3,7 +3,7 @@ import { cn } from '../../../lib/utils';
 import { Checkbox } from '../../../components/atoms/ui/checkbox';
 import { toast } from 'react-hot-toast';
 import { settingsService } from '../../../services/settingsService';
-import type { NotificationPreference } from '../../../types/settings';
+import type { NotificationPreferenceUpdate } from '../../../types/settings';
 
 interface NotificationSettingsProps {
   className?: string;
@@ -34,9 +34,9 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ className }
       const transformedNotifications = notificationPrefs.map(pref => ({
         id: pref._id,
         title: pref.type,
-        description: `Notification for ${pref.type}`,
-        emailEnabled: pref.enabled && pref.frequency !== 'never',
-        desktopEnabled: pref.enabled
+        description: pref.description,
+        emailEnabled: pref.emailEnabled,
+        desktopEnabled: pref.desktopEnabled
       }));
 
       setNotifications(transformedNotifications);
@@ -67,14 +67,27 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ className }
       setNotifications(updatedNotifications);
 
       // Transform to backend format
-      const preferencesToUpdate = updatedNotifications.map(n => ({
+      const preferencesToUpdate: NotificationPreferenceUpdate[] = updatedNotifications.map(n => ({
         _id: n.id,
-        type: n.title,
-        enabled: n.emailEnabled || n.desktopEnabled,
-        frequency: n.emailEnabled ? 'daily' : 'never'
+        emailEnabled: n.emailEnabled,
+        emailFrequency: n.emailEnabled ? 'daily' : 'never',
+        desktopEnabled: n.desktopEnabled
       }));
 
-      await settingsService.updateNotifications(preferencesToUpdate);
+      const response = await settingsService.updateNotifications(preferencesToUpdate);
+      
+      // If the response includes updated preferences, update the local state
+      if (response.preferences) {
+        const updatedPrefs = response.preferences.map(pref => ({
+          id: pref._id,
+          title: pref.type,
+          description: pref.description,
+          emailEnabled: pref.emailEnabled,
+          desktopEnabled: pref.desktopEnabled
+        }));
+        setNotifications(updatedPrefs);
+      }
+      
       toast.success('Notification settings updated');
     } catch (error) {
       console.error('Error updating notification:', error);
