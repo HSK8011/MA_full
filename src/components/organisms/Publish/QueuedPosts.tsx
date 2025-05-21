@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../../lib/utils';
+import { postService } from '../../../services/postService';
+import type { PostWithIntegration } from '../../../services/postService';
 
 type Post = {
   id: string;
@@ -10,6 +12,8 @@ type Post = {
   content: string;
   image?: string;
   date?: string; // For weekly/monthly view
+  dayOfWeek?: string; // 0-6 representing Sunday-Saturday
+  rawDate?: Date; // Full date object for more accurate filtering
 };
 
 interface QueuedPostsProps {
@@ -19,7 +23,7 @@ interface QueuedPostsProps {
 export const QueuedPosts: React.FC<QueuedPostsProps> = ({ className }) => {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month');
-  const [currentDate, setCurrentDate] = useState(new Date(2022, 7, 8)); // August 8, 2022
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [dateRange, setDateRange] = useState<string>('August 2022');
   
   // Set date range whenever view mode or current date changes
@@ -53,45 +57,99 @@ export const QueuedPosts: React.FC<QueuedPostsProps> = ({ className }) => {
     }
   }, [viewMode, currentDate]);
 
-  // Mock data for demonstration
-  const posts: Post[] = [
-    {
-      id: '1',
-      time: '08:00 am',
-      platform: 'facebook',
-      platformIcon: '/images/platforms/facebook-icon.png',
-      content: 'Enjoying holidays with AIMDek Family',
-      image: '/images/platforms/holiday-post-1.jpg',
-      date: '08' // Monday
-    },
-    {
-      id: '2',
-      time: '08:30 am',
-      platform: 'twitter',
-      platformIcon: '/images/platforms/twitter-icon.png',
-      content: 'Enjoying holidays with AIMDek Family',
-      image: '/images/platforms/holiday-post-2.jpg',
-      date: '08' // Monday
-    },
-    {
-      id: '3',
-      time: '09:10 am',
-      platform: 'instagram',
-      platformIcon: '/images/platforms/instagram-icon.png',
-      content: 'Enjoying holidays with AIMDek Family',
-      image: '/images/platforms/holiday-post-3.jpg',
-      date: '08' // Monday
-    },
-    {
-      id: '4',
-      time: '09:10 am',
-      platform: 'instagram',
-      platformIcon: '/images/platforms/instagram-icon.png',
-      content: 'Enjoying holidays with AIMDek Family',
-      image: '/images/platforms/holiday-post-2.jpg',
-      date: '09' // Tuesday
-    }
-  ];
+  // State for storing posts from the API
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch scheduled posts from the API based on date range
+  useEffect(() => {
+    const fetchQueuedPosts = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // Determine date range for API query based on current view and date
+        let startDate: string | undefined;
+        let endDate: string | undefined;
+        
+        if (viewMode === 'day') {
+          // For day view, get posts for the selected day only
+          const day = new Date(currentDate);
+          startDate = day.toISOString().split('T')[0]; // YYYY-MM-DD
+          const nextDay = new Date(currentDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          endDate = nextDay.toISOString().split('T')[0];
+        } else if (viewMode === 'week') {
+          // For week view, get posts for the entire week
+          const firstDay = new Date(currentDate);
+          const day = firstDay.getDay();
+          const diff = firstDay.getDate() - day;
+          firstDay.setDate(diff); // First day of week (Sunday)
+          
+          const lastDay = new Date(firstDay);
+          lastDay.setDate(lastDay.getDate() + 7); // First day of next week
+          
+          startDate = firstDay.toISOString().split('T')[0];
+          endDate = lastDay.toISOString().split('T')[0];
+        } else if (viewMode === 'month') {
+          // For month view, get posts for the entire month
+          const year = currentDate.getFullYear();
+          const month = currentDate.getMonth();
+          startDate = new Date(year, month, 1).toISOString().split('T')[0]; // First day of month
+          endDate = new Date(year, month + 1, 1).toISOString().split('T')[0]; // First day of next month
+        }
+        
+        // Query API with date range parameters
+        const params: any = {};
+        if (startDate && endDate) {
+          params.startDate = startDate;
+          params.endDate = endDate;
+        }
+        
+        const response = await postService.getQueuedPosts(params);
+        
+        // Transform the API response to match our Post type
+        const transformedPosts = response.posts.map((post: PostWithIntegration) => {
+          // Format the scheduled date
+          const scheduledDate = new Date(post.scheduledAt || '');
+          const formattedDate = scheduledDate.getDate().toString().padStart(2, '0');
+          const formattedTime = scheduledDate.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+          }).toLowerCase();
+          
+          // Get platform icon path based on platform
+          const platformIconPath = `/images/platforms/${post.platform.toLowerCase()}-icon.png`;
+          
+          // For week view, we need to add day of week information
+          const dayOfWeek = scheduledDate.getDay(); // 0 = Sunday, 6 = Saturday
+          
+          return {
+            id: post._id,
+            time: formattedTime,
+            platform: post.platform,
+            platformIcon: platformIconPath,
+            content: post.content,
+            image: post.mediaUrls && post.mediaUrls.length > 0 ? post.mediaUrls[0] : undefined,
+            date: formattedDate,
+            dayOfWeek: dayOfWeek.toString(), // Add day of week for filtering in week view
+            rawDate: scheduledDate // Store the full date for more accurate filtering
+          };
+        });
+        
+        setPosts(transformedPosts);
+      } catch (err) {
+        console.error('Error fetching queued posts:', err);
+        setError('Failed to load scheduled posts. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchQueuedPosts();
+  }, [viewMode, currentDate]); // Re-fetch when view mode or current date changes
 
   // Format date as "Today, DD MMM YYYY"
   const formatDate = (date: Date): string => {
@@ -111,16 +169,30 @@ export const QueuedPosts: React.FC<QueuedPostsProps> = ({ className }) => {
     '04:00 pm', '05:00 pm', '06:00 pm', '07:00 pm'
   ];
 
+  // Generate weekly view days based on current date
+  const generateWeekDays = () => {
+    const weekDays = [];
+    const firstDayOfWeek = new Date(currentDate);
+    const day = firstDayOfWeek.getDay();
+    const diff = firstDayOfWeek.getDate() - day;
+    firstDayOfWeek.setDate(diff); // Set to Sunday
+    
+    for (let i = 0; i < 7; i++) {
+      const currentDay = new Date(firstDayOfWeek);
+      currentDay.setDate(currentDay.getDate() + i);
+      
+      weekDays.push({
+        name: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][i],
+        date: currentDay.getDate().toString().padStart(2, '0'),
+        fullDate: currentDay
+      });
+    }
+    
+    return weekDays;
+  };
+  
   // Weekly view days
-  const weekDays = [
-    { name: 'Sunday', date: '07' },
-    { name: 'Monday', date: '08' },
-    { name: 'Tuesday', date: '09' },
-    { name: 'Wednesday', date: '10' },
-    { name: 'Thursday', date: '11' },
-    { name: 'Friday', date: '12' },
-    { name: 'Saturday', date: '13' }
-  ];
+  const weekDays = generateWeekDays();
 
   // Navigate to previous or next day/week/month
   const navigateDate = (direction: 'prev' | 'next') => {
@@ -153,15 +225,40 @@ export const QueuedPosts: React.FC<QueuedPostsProps> = ({ className }) => {
   const getPostsForTimeSlot = (timeSlot: string) => {
     const timePrefix = timeSlot.split(':')[0];
     const amPm = timeSlot.includes('am') ? 'am' : 'pm';
-    return posts.filter(post => 
-      post.time.startsWith(timePrefix) && 
-      post.time.includes(amPm)
-    );
+    
+    // For day view, we need to filter posts that are scheduled for the current selected day
+    return posts.filter(post => {
+      // First check if this post is scheduled for the current day
+      if (post.rawDate) {
+        const postDate = post.rawDate;
+        const selectedDate = new Date(currentDate);
+        
+        // Check if the post is scheduled for the selected day
+        const isSameDay = 
+          postDate.getFullYear() === selectedDate.getFullYear() &&
+          postDate.getMonth() === selectedDate.getMonth() &&
+          postDate.getDate() === selectedDate.getDate();
+        
+        if (!isSameDay) return false;
+      }
+      
+      // Then check if it matches the time slot
+      const postTimePrefix = post.time.split(':')[0].padStart(2, '0');
+      const normalizedTimePrefix = timePrefix.padStart(2, '0');
+      
+      return postTimePrefix === normalizedTimePrefix && post.time.includes(amPm);
+    });
   };
 
   // Get posts for a specific day in week view
-  const getPostsForDay = (date: string) => {
-    return posts.filter(post => post.date === date);
+  const getPostsForDay = (date: string, dayIndex?: number) => {
+    if (viewMode === 'week' && dayIndex !== undefined) {
+      // In week view, filter by day of week (0-6)
+      return posts.filter(post => post.dayOfWeek === dayIndex.toString());
+    } else {
+      // In month view, filter by date
+      return posts.filter(post => post.date === date);
+    }
   };
 
   // Get post sub-groups by exact time
@@ -327,8 +424,8 @@ export const QueuedPosts: React.FC<QueuedPostsProps> = ({ className }) => {
             
             {/* Days content */}
             <div className="grid grid-cols-7 min-h-[500px]">
-              {weekDays.map((day) => {
-                const dayPosts = getPostsForDay(day.date);
+              {weekDays.map((day, index) => {
+                const dayPosts = getPostsForDay(day.date, index);
                 const hasMorePosts = dayPosts.length > 4;
                 const displayPosts = hasMorePosts ? dayPosts.slice(0, 4) : dayPosts;
                 
@@ -457,13 +554,10 @@ export const QueuedPosts: React.FC<QueuedPostsProps> = ({ className }) => {
     const monthDays = generateMonthCalendar();
     const weekNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-    // Function to get posts for a specific day (mapped to our mock data for demo)
+    // Function to get posts for a specific day in month view
     const getPostsForMonthDay = (date: string) => {
-      // For demo, only return posts for specific dates
-      if (date === '08' || date === '09' || date === '31') {
-        return posts.filter(post => post.date === date);
-      }
-      return [];
+      // For real data, return all posts scheduled for this date
+      return posts.filter(post => post.date === date);
     };
 
     return (
@@ -546,6 +640,35 @@ export const QueuedPosts: React.FC<QueuedPostsProps> = ({ className }) => {
     );
   };
 
+  // Display loading state
+  if (isLoading && posts.length === 0) {
+    return (
+      <div className={cn("bg-white rounded-lg shadow-sm p-8 flex justify-center items-center", className)}>
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent align-[-0.125em]"></div>
+          <p className="mt-4 text-gray-600">Loading scheduled posts...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Display error state
+  if (error && posts.length === 0) {
+    return (
+      <div className={cn("bg-white rounded-lg shadow-sm p-8", className)}>
+        <div className="text-center text-red-500">
+          <p>{error}</p>
+          <button 
+            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            onClick={() => window.location.reload()}
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className={cn("bg-white rounded-lg shadow-sm", className)}>
       <style>

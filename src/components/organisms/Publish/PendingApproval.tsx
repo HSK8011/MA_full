@@ -36,7 +36,7 @@ export const PendingApproval: React.FC<PendingApprovalProps> = ({ className }) =
   const accountDropdownRef = useRef<HTMLDivElement>(null);
   
   // Available social accounts for the current user
-  const [accounts, setAccounts] = useState<SocialAccount[]>([
+  const [accounts] = useState<SocialAccount[]>([
     {
       id: 'all',
       name: 'All Accounts',
