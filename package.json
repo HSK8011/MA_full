@@ -45,6 +45,9 @@
     "sass": "^1.88.0",
     "tailwind-merge": "^3.3.0"
   },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "4.6.1"
+  },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
     "@headlessui/react": "^2.2.3",
