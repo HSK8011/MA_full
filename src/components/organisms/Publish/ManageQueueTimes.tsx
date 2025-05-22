@@ -665,6 +665,8 @@ export const ManageQueueTimes: React.FC<ManageQueueTimesProps> = ({ className })
     { name: 'Smart Tech Labs', handle: '@smarttechlabs', avatar: '/images/group-437.png' }
   ];
 
+  const [setShowMediaModal] = useState<'image' | 'video' | 'gif' | null>(null);
+  
   return (
     <div className={cn("w-full p-6 bg-gray-50", className)}>
       <div className="mb-6">
