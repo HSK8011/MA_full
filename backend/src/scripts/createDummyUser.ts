@@ -5,7 +5,7 @@ import { config } from '../config';
 const createDummyUser = async () => {
   try {
     // Connect to MongoDB
-    await mongoose.connect(config.mongoUri);
+    await mongoose.connect(config.mongodbUri);
     console.log('Connected to MongoDB Atlas');
 
     // Create dummy user
