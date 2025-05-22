@@ -10,7 +10,7 @@ import type {
 } from '../types/settings';
 
 class SettingsService {
-  private baseUrl = '/api/settings';
+  private baseUrl = 'https://ma-full.onrender.com/'
 
   async getSettings(): Promise<{
     user: User;
