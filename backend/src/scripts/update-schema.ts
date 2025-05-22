@@ -16,7 +16,7 @@ const updateSchema = async () => {
     await connectDB();
     
     console.log('✅ Connected to MongoDB Atlas');
-    console.log('📊 Current MongoDB connection string:', config.mongoUri.substring(0, 35) + '...');
+    console.log('📊 Current MongoDB connection string:', config.mongodbUri.substring(0, 35) + '...');
     
     // Get list of collections
     const collections = await mongoose.connection.db.listCollections().toArray();
