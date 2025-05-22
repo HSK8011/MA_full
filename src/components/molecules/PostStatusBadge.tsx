@@ -3,13 +3,12 @@ import type { TopPost } from '../../services/analyticsService';
 
 interface PostStatusBadgeProps {
   status: string;
-  scheduledAt?: string;
 }
 
 /**
  * Component to display a status badge for posts
  */
-export const PostStatusBadge: React.FC<PostStatusBadgeProps> = ({ status, scheduledAt }) => {
+export const PostStatusBadge: React.FC<PostStatusBadgeProps> = ({ status }) => {
   // Get status badge styling
   const getStatusBadgeClasses = (status: string) => {
     switch (status) {
