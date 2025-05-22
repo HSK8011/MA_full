@@ -10,9 +10,9 @@ dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
 async function addTestUser() {
   try {
     console.log('Connecting to MongoDB...');
-    console.log('Using MongoDB URI:', config.mongoUri.substring(0, 25) + '...');
+    console.log('Using MongoDB URI:', config.mongodbUri.substring(0, 25) + '...');
     
-    await mongoose.connect(config.mongoUri);
+    await mongoose.connect(config.mongodbUri);
     console.log('Connected to MongoDB');
 
     // Check if user already exists
