@@ -12,14 +12,6 @@ interface ConnectContentProps {
 
 type Platform = typeof SUPPORTED_PLATFORMS[keyof typeof SUPPORTED_PLATFORMS];
 
-interface Integration {
-  _id: string;
-  platform: Platform;
-  status: 'active' | 'inactive' | 'error';
-  username: string;
-  lastConnected?: Date;
-}
-
 interface SocialAccount {
   id: string;
   name: string;
