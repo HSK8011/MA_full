@@ -1,26 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { cn } from '../../../lib/utils';
+import dashboardService from '../../../services/dashboardService';
+import { toast } from 'react-hot-toast';
+import type { SocialAccount, SocialMetric } from '../../../services/dashboardService';
 
 interface ChannelAnalyticsProps {
   className?: string;
-}
-
-// Data interfaces for better type checking
-interface SocialAccount {
-  id: string;
-  name: string;
-  handle: string;
-  platform: string;
-  platformIcon: string;
-  profileImage: string;
-}
-
-interface SocialMetric {
-  label: string;
-  value: string;
-  change?: string;
-  changeLabel?: string;
-  isPositive?: boolean;
 }
 
 interface TimeRange {
@@ -52,261 +37,94 @@ export const ChannelAnalytics: React.FC<ChannelAnalyticsProps> = ({ className })
   const [selectedAccount, setSelectedAccount] = useState<SocialAccount | null>(null);
   
   // State for metrics loading
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [metrics, setMetrics] = useState<SocialMetric[]>([]);
   
-  // Mock data for user accounts (in a real app, this would come from an API)
-  const userAccounts: SocialAccount[] = [
-    {
-      id: '1',
-      name: 'AIMDek Technologies',
-      handle: '@aimdektech',
-      platform: 'twitter',
-      platformIcon: '/images/page3/twitter@3x.png',
-      profileImage: '/images/page2/user.png'
-    },
-    {
-      id: '2',
-      name: 'AIMDek Technologies',
-      handle: '@aimdektech',
-      platform: 'facebook',
-      platformIcon: '/images/page3/facebook@3x.png',
-      profileImage: '/images/page2/user.png'
-    },
-    {
-      id: '3',
-      name: 'AIMDek Tech',
-      handle: '@aimdek',
-      platform: 'twitter',
-      platformIcon: '/images/page3/twitter@3x.png',
-      profileImage: '/images/page2/company.png'
-    },
-    {
-      id: '4',
-      name: 'AIMDek Technologies',
-      handle: '@aimdek-technologies',
-      platform: 'linkedin',
-      platformIcon: '/images/page3/linkedin@3x.png',
-      profileImage: '/images/page2/user.png'
-    },
-    {
-      id: '5',
-      name: 'AIMDek Tech',
-      handle: '@aimdektech',
-      platform: 'pinterest',
-      platformIcon: '/images/page3/pinterest-seeklogo-com@3x.png',
-      profileImage: '/images/page2/company.png'
-    }
-  ];
+  // State for user accounts (fetched from API)
+  const [userAccounts, setUserAccounts] = useState<SocialAccount[]>([]);
   
-  // Mock metrics data - In a real app, this would come from an API call with the time range
-  const getMetricsForAccount = (account: SocialAccount, timeFilter: string, customRange?: TimeRange): SocialMetric[] => {
-    // Simulate different data for different time ranges
-    let timeBasedData: {[key: string]: {[platform: string]: SocialMetric[]}} = {
-      'Today': {
-        'twitter': [
-          { label: 'Total Followers', value: '12.5K', change: '+0.5%', changeLabel: 'today', isPositive: true },
-          { label: 'Tweets', value: '3', change: '+3', changeLabel: 'new today', isPositive: true },
-          { label: 'Queued Posts', value: '5', change: '-2', changeLabel: 'from yesterday', isPositive: false },
-          { label: 'Engagements', value: '820', change: '+12%', changeLabel: 'vs yesterday', isPositive: true }
-        ],
-        'facebook': [
-          { label: 'Total Followers', value: '35.7K', change: '+0.2%', changeLabel: 'today', isPositive: true },
-          { label: 'Posts', value: '2', change: '+2', changeLabel: 'new today', isPositive: true },
-          { label: 'Queued Posts', value: '4', change: '-1', changeLabel: 'from yesterday', isPositive: false },
-          { label: 'Engagements', value: '560', change: '+5%', changeLabel: 'vs yesterday', isPositive: true }
-        ],
-        'linkedin': [
-          { label: 'Connections', value: '8.3K', change: '+0.3%', changeLabel: 'today', isPositive: true },
-          { label: 'Posts', value: '1', change: '+1', changeLabel: 'new today', isPositive: true },
-          { label: 'Queued Posts', value: '2', change: '0', changeLabel: 'from yesterday', isPositive: true },
-          { label: 'Engagements', value: '310', change: '+8%', changeLabel: 'vs yesterday', isPositive: true }
-        ],
-        'pinterest': [
-          { label: 'Followers', value: '4.1K', change: '+0.4%', changeLabel: 'today', isPositive: true },
-          { label: 'Pins', value: '5', change: '+5', changeLabel: 'new today', isPositive: true },
-          { label: 'Queued Pins', value: '3', change: '-1', changeLabel: 'from yesterday', isPositive: false },
-          { label: 'Engagements', value: '250', change: '+15%', changeLabel: 'vs yesterday', isPositive: true }
-        ]
-      },
-      'This Week': {
-        'twitter': [
-          { label: 'Total Followers', value: '12.5K', change: '+2.5%', changeLabel: 'this week', isPositive: true },
-          { label: 'Tweets', value: '15', change: '+8', changeLabel: 'from last week', isPositive: true },
-          { label: 'Queued Posts', value: '12', change: '+4', changeLabel: 'from last week', isPositive: true },
-          { label: 'Engagements', value: '4.2K', change: '+18%', changeLabel: 'vs last week', isPositive: true }
-        ],
-        'facebook': [
-          { label: 'Total Followers', value: '35.7K', change: '+1.2%', changeLabel: 'this week', isPositive: true },
-          { label: 'Posts', value: '10', change: '+2', changeLabel: 'from last week', isPositive: true },
-          { label: 'Queued Posts', value: '8', change: '+3', changeLabel: 'from last week', isPositive: true },
-          { label: 'Engagements', value: '7.8K', change: '+8%', changeLabel: 'vs last week', isPositive: true }
-        ],
-        'linkedin': [
-          { label: 'Connections', value: '8.3K', change: '+1.8%', changeLabel: 'this week', isPositive: true },
-          { label: 'Posts', value: '6', change: '+1', changeLabel: 'from last week', isPositive: true },
-          { label: 'Queued Posts', value: '4', change: '+2', changeLabel: 'from last week', isPositive: true },
-          { label: 'Engagements', value: '1.7K', change: '+12%', changeLabel: 'vs last week', isPositive: true }
-        ],
-        'pinterest': [
-          { label: 'Followers', value: '4.1K', change: '+3.2%', changeLabel: 'this week', isPositive: true },
-          { label: 'Pins', value: '28', change: '+10', changeLabel: 'from last week', isPositive: true },
-          { label: 'Queued Pins', value: '8', change: '+2', changeLabel: 'from last week', isPositive: true },
-          { label: 'Engagements', value: '1.2K', change: '+22%', changeLabel: 'vs last week', isPositive: true }
-        ]
-      },
-      'This Month': {
-        'twitter': [
-          { label: 'Total Followers', value: '12.5K', change: '+10%', changeLabel: 'vs previous month', isPositive: true },
-          { label: 'Tweets', value: '40', change: '+15', changeLabel: 'from last month', isPositive: true },
-          { label: 'Queued Posts', value: '20', change: '+8', changeLabel: 'from last month', isPositive: true },
-          { label: 'Engagements', value: '10K', change: '+25%', changeLabel: 'vs last month', isPositive: true }
-        ],
-        'facebook': [
-          { label: 'Total Followers', value: '35.7K', change: '+5%', changeLabel: 'vs previous month', isPositive: true },
-          { label: 'Posts', value: '25', change: '+7', changeLabel: 'from last month', isPositive: true },
-          { label: 'Queued Posts', value: '12', change: '+4', changeLabel: 'from last month', isPositive: true },
-          { label: 'Engagements', value: '21K', change: '+12%', changeLabel: 'vs last month', isPositive: true }
-        ],
-        'linkedin': [
-          { label: 'Connections', value: '8.3K', change: '+7%', changeLabel: 'vs previous month', isPositive: true },
-          { label: 'Posts', value: '18', change: '+6', changeLabel: 'from last month', isPositive: true },
-          { label: 'Queued Posts', value: '8', change: '+3', changeLabel: 'from last month', isPositive: true },
-          { label: 'Engagements', value: '5.2K', change: '+15%', changeLabel: 'vs last month', isPositive: true }
-        ],
-        'pinterest': [
-          { label: 'Followers', value: '4.1K', change: '+12%', changeLabel: 'vs previous month', isPositive: true },
-          { label: 'Pins', value: '120', change: '+45', changeLabel: 'from last month', isPositive: true },
-          { label: 'Queued Pins', value: '15', change: '+5', changeLabel: 'from last month', isPositive: true },
-          { label: 'Engagements', value: '3.5K', change: '+28%', changeLabel: 'vs last month', isPositive: true }
-        ]
-      },
-      'Custom': {
-        'twitter': [
-          { label: 'Total Followers', value: '12.3K', change: '+3.7%', changeLabel: 'in selected period', isPositive: true },
-          { label: 'Tweets', value: '22', change: '+22', changeLabel: 'in selected period', isPositive: true },
-          { label: 'Queued Posts', value: '14', change: '+6', changeLabel: 'since period start', isPositive: true },
-          { label: 'Engagements', value: '6.8K', change: '+15%', changeLabel: 'in selected period', isPositive: true }
-        ],
-        'facebook': [
-          { label: 'Total Followers', value: '35.5K', change: '+2.3%', changeLabel: 'in selected period', isPositive: true },
-          { label: 'Posts', value: '14', change: '+14', changeLabel: 'in selected period', isPositive: true },
-          { label: 'Queued Posts', value: '9', change: '+3', changeLabel: 'since period start', isPositive: true },
-          { label: 'Engagements', value: '12.5K', change: '+10%', changeLabel: 'in selected period', isPositive: true }
-        ],
-        'linkedin': [
-          { label: 'Connections', value: '8.2K', change: '+4.1%', changeLabel: 'in selected period', isPositive: true },
-          { label: 'Posts', value: '10', change: '+10', changeLabel: 'in selected period', isPositive: true },
-          { label: 'Queued Posts', value: '6', change: '+2', changeLabel: 'since period start', isPositive: true },
-          { label: 'Engagements', value: '3.2K', change: '+13%', changeLabel: 'in selected period', isPositive: true }
-        ],
-        'pinterest': [
-          { label: 'Followers', value: '4.0K', change: '+8%', changeLabel: 'in selected period', isPositive: true },
-          { label: 'Pins', value: '75', change: '+75', changeLabel: 'in selected period', isPositive: true },
-          { label: 'Queued Pins', value: '12', change: '+4', changeLabel: 'since period start', isPositive: true },
-          { label: 'Engagements', value: '2.8K', change: '+20%', changeLabel: 'in selected period', isPositive: true }
-        ]
-      }
-    };
+  // Fetch metrics data from API
+  const fetchMetricsForAccount = async (account: SocialAccount, timeFilter: string): Promise<void> => {
+    if (!account) return;
     
-    // Return data based on time filter
-    if (timeFilter === 'Custom' && customRange) {
-      return processCustomRangeMetrics(account, customRange, timeBasedData[timeFilter][account.platform]);
+    setIsLoading(true);
+    try {
+      const data = await dashboardService.getChannelAnalytics(account.id, timeFilter);
+      setMetrics(data.metrics);
+    } catch (error) {
+      console.error('Failed to fetch channel analytics:', error);
+      toast.error('Failed to load channel analytics');
+      // Set empty metrics if API fails
+      setMetrics([]);
+    } finally {
+      setIsLoading(false);
     }
-    
-    return timeBasedData[timeFilter][account.platform] || [];
-  };
-  
-  // Social channels tabs configuration
-  const socialChannels = [
-    { name: 'Twitter', value: 'twitter', icon: '/images/page3/twitter@3x.png' },
-    { name: 'Facebook', value: 'facebook', icon: '/images/page3/facebook@3x.png' },
-    { name: 'LinkedIn', value: 'linkedin', icon: '/images/page3/linkedin@3x.png' },
-    { name: 'Pinterest', value: 'pinterest', icon: '/images/page3/pinterest-seeklogo-com@3x.png' },
-  ];
-  
-  // Filter accounts based on active platform
-  const filteredAccounts = userAccounts.filter(account => account.platform === activePlatform);
-  
-  // Initialize with first account of selected platform
-  useEffect(() => {
-    if (filteredAccounts.length > 0 && !selectedAccount) {
-      setSelectedAccount(filteredAccounts[0]);
-    } else if (filteredAccounts.length > 0 && selectedAccount && selectedAccount.platform !== activePlatform) {
-      // If platform changed, update selected account
-      setSelectedAccount(filteredAccounts[0]);
-    }
-  }, [activePlatform, filteredAccounts, selectedAccount]);
-  
-  // Handle time filter click
-  const handleTimeFilterClick = (filter: string) => {
-    setActiveTimeFilter(filter);
-    if (filter === 'Custom') {
-      setShowDatePicker(true);
-    } else {
-      setShowDatePicker(false);
-      fetchMetrics(filter);
-    }
-  };
-  
-  // Handle platform change
-  const handlePlatformChange = (platform: string) => {
-    setActivePlatform(platform);
-    setSelectedAccount(null);
-    setIsAccountDropdownOpen(false);
   };
   
   // Handle account selection
   const handleAccountSelect = (account: SocialAccount) => {
     setSelectedAccount(account);
+    setActivePlatform(account.platform);
     setIsAccountDropdownOpen(false);
-  };
-  
-  // Handle date range selection for custom filter
-  const handleDateRangeSelect = (startDate: Date, endDate: Date) => {
-    setCustomDateRange({ startDate, endDate });
-    setShowDatePicker(false);
-  };
-  
-  // Fetch metrics based on time filter
-  const fetchMetrics = (timeFilter: string, customRange?: TimeRange) => {
-    setIsLoading(true);
     
-    // Simulate API call delay
-    setTimeout(() => {
+    // Fetch metrics for the selected account
+    fetchMetricsForAccount(account, activeTimeFilter);
+  };
+  
+  // Handle time filter change
+  const handleTimeFilterClick = (filter: string) => {
+    setActiveTimeFilter(filter);
+    
+    if (filter === 'Custom') {
+      setShowDatePicker(true);
+    } else {
+      setShowDatePicker(false);
       if (selectedAccount) {
-        const metrics = getMetricsForAccount(selectedAccount, timeFilter, customRange);
-        // Update metrics state here
+        // Fetch metrics with the new time filter
+        fetchMetricsForAccount(selectedAccount, filter);
       }
-      setIsLoading(false);
-    }, 1000);
+    }
   };
   
-  // Process metrics for custom date range
-  const processCustomRangeMetrics = (account: SocialAccount, range: TimeRange, customData: SocialMetric[]) => {
-    // In a real app, this would make an API call with the date range
-    // For now, just return the mock custom data
-    return customData;
+  // Handle date range selection
+  const handleDateRangeSelect = (range: TimeRange) => {
+    setCustomDateRange(range);
+    setActiveTimeFilter('Custom');
+    setShowDatePicker(false);
+    
+    if (selectedAccount) {
+      // Fetch metrics with the custom date range
+      fetchMetricsForAccount(selectedAccount, 'Custom');
+    }
   };
   
-  // Format date for display
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+  // Toggle account dropdown
+  const toggleAccountDropdown = () => {
+    setIsAccountDropdownOpen(!isAccountDropdownOpen);
   };
   
-  // Handle clicks outside dropdowns
+  // Handle platform change
+  const handlePlatformChange = (platform: string) => {
+    setActivePlatform(platform);
+    
+    // Find first account of this platform
+    const platformAccount = userAccounts.find(acc => acc.platform === platform);
+    if (platformAccount) {
+      setSelectedAccount(platformAccount);
+      fetchMetricsForAccount(platformAccount, activeTimeFilter);
+    }
+  };
+  
+  // Close dropdowns when clicking outside
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsAccountDropdownOpen(false);
       }
       if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
         setShowDatePicker(false);
       }
-    }
+    };
     
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
@@ -314,18 +132,105 @@ export const ChannelAnalytics: React.FC<ChannelAnalyticsProps> = ({ className })
     };
   }, []);
   
-  // Fetch initial metrics
+  // Fetch dashboard data on component mount
   useEffect(() => {
-    if (selectedAccount) {
-      fetchMetrics(activeTimeFilter, activeTimeFilter === 'Custom' ? customDateRange : undefined);
+    const fetchDashboardData = async () => {
+      setIsLoading(true);
+      try {
+        const data = await dashboardService.getDashboardData();
+        setUserAccounts(data.accounts);
+        
+        if (data.accounts.length > 0) {
+          const firstAccount = data.accounts[0];
+          setSelectedAccount(firstAccount);
+          setActivePlatform(firstAccount.platform);
+          await fetchMetricsForAccount(firstAccount, activeTimeFilter);
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+        toast.error('Failed to load accounts');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchDashboardData();
+  }, []);
+  
+  // Helper functions for platform colors and icons
+  const getPlatformColor = (platform: string): string => {
+    switch (platform) {
+      case 'twitter':
+        return 'bg-blue-400';
+      case 'linkedin':
+        return 'bg-blue-700';
+      case 'facebook':
+        return 'bg-blue-600';
+      case 'pinterest':
+        return 'bg-red-600';
+      case 'instagram':
+        return 'bg-gradient-to-tr from-purple-600 via-pink-500 to-orange-400';
+      default:
+        return 'bg-gray-500';
     }
-  }, [selectedAccount, activeTimeFilter, customDateRange]);
+  };
+
+  const getPlatformIcon = (platform: string): string => {
+    switch (platform) {
+      case 'twitter':
+        return 'T';
+      case 'linkedin':
+        return 'L';
+      case 'facebook':
+        return 'F';
+      case 'pinterest':
+        return 'P';
+      case 'instagram':
+        return 'I';
+      default:
+        return '?';
+    }
+  };
   
-  // Get metrics for the currently selected account
-  const metrics = selectedAccount ? getMetricsForAccount(selectedAccount, activeTimeFilter, customDateRange) : [];
+  // Social media channels with fallback icons
+  const socialChannels = [
+    { 
+      name: 'Twitter', 
+      value: 'twitter', 
+      icon: '/images/page3/twitter@3x.png',
+      fallbackIcon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzFEQTFGMiIgZD0iTTIzLjk1MyA0LjU3YTEwIDEwIDAgMDEtMi44MjUuNzc1IDQuOTU4IDQuOTU4IDAgMDAyLjE2My0yLjcyM2MtLjk1MS41NTUtMi4wMDUuOTU5LTMuMTI3IDEuMTg0YTQuOTIgNC45MiAwIDAwLTguMzg0IDQuNDgyQzcuNjkgOC4wOTUgNC4wNjcgNi4xMyAxLjY0IDMuMTYyYTQuODIyIDQuODIyIDAgMDAtLjY2NiAyLjQ3NWMwIDEuNzEuODcgMy4yMTMgMi4xODggNC4wOTZhNC45MDQgNC45MDQgMCAwMS0yLjIyOC0uNjE2di4wNmE0LjkyMyA0LjkyMyAwIDAwMy45NDYgNC44MjcgNC45OTYgNC45OTYgMCAwMS0yLjIxMi4wODUgNC45MzYgNC45MzYgMCAwMDQuNjA0IDMuNDE3IDkuODY3IDkuODY3IDAgMDEtNi4xMDIgMi4xMDVjLS4zOSAwLS43NzktLjAyMy0xLjE3LS4wNjdhMTMuOTk1IDEzLjk5NSAwIDAwNy41NTcgMi4yMDljOS4wNTMgMCAxMy45OTgtNy40OTYgMTMuOTk4LTEzLjk4NSAwLS4yMSAwLS40Mi0uMDE1LS42M0E5LjkzNSA5LjkzNSAwIDAwMjQgNC41OXoiLz48L3N2Zz4=' 
+    },
+    { 
+      name: 'Facebook', 
+      value: 'facebook', 
+      icon: '/images/page3/facebook@3x.png',
+      fallbackIcon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzE4NzdGMiIgZD0iTTI0IDEyLjA3M2MwLTYuNjI3LTUuMzczLTEyLTEyLTEycy0xMiA1LjM3My0xMiAxMmMwIDUuOTkgNC4zODggMTAuOTU0IDEwLjEyNSAxMS44NTR2LTguMzg1SDcuMDc4di0zLjQ3aDMuMDQ3VjkuNDNjMC0zLjAwNyAxLjc5Mi00LjY2OSA0LjUzMy00LjY2OSAxLjMxMiAwIDIuNjg2LjIzNSAyLjY4Ni4yMzV2Mi45NTNoLTEuNTEzYy0xLjQ5IDAtMS45NTUuOTI1LTEuOTU1IDEuODc0djIuMjVoMy4zMjhsLS41MzIgMy40N2gtMi43OTZ2OC4zODVDMTkuNjEyIDIzLjAyNyAyNCAxOC4wNjIgMjQgMTIuMDczeiIvPjwvc3ZnPg==' 
+    },
+    { 
+      name: 'LinkedIn', 
+      value: 'linkedin', 
+      icon: '/images/page3/linkedin@3x.png',
+      fallbackIcon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzAwNzdiNSIgZD0iTTIwLjQ0NyAyMC40NTJoLTMuNTU0di01LjU2OWMwLTEuMzI4LS4wMjctMy4wMzctMS44NTItMy4wMzctMS44NTMgMC0yLjEzNiAxLjQ0NS0yLjEzNiAyLjkzOXY1LjY2N0g5LjM1MVY5aDMuNDE0djEuNTYxaC4wNDZjLjQ3Ny0uOSAxLjYzNy0xLjg1IDMuMzctMS44NSAzLjYwMSAwIDQuMjY3IDIuMzcgNC4yNjcgNS40NTV2Ni4yODZ6TTUuMzM3IDcuNDMzYy0xLjE0NCAwLTIuMDYzLS45MjYtMi4wNjMtMi4wNjUgMC0xLjEzOC45Mi0yLjA2MyAyLjA2My0yLjA2MyAxLjE0IDAgMi4wNjQuOTI1IDIuMDY0IDIuMDYzIDAgMS4xMzktLjkyNSAyLjA2NS0yLjA2NCAyLjA2NXptMS43OTUgMTMuMDE5SDMuNTc5VjlINy4xMzJ2MTEuNDUyek0yMi4yMjUgMEgxLjc3MUMuNzkyIDAgMCAuNzc0IDAgMS43Mjl2MjAuNTQyQzAgMjMuMjI3Ljc5MiAyNCAxLjc3MSAyNGgyMC40NTFDMjMuMiAyNCAyNCAyMy4yMjcgMjQgMjIuMjcxVjEuNzI5QzI0IC43NzQgMjMuMiAwIDIyLjIyMiAwaC4wMDN6Ii8+PC9zdmc+' 
+    },
+    { 
+      name: 'Pinterest', 
+      value: 'pinterest', 
+      icon: '/images/page3/pinterest-seeklogo-com@3x.png',
+      fallbackIcon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI0UwMDAyMyIgZD0iTTEyLjAxNyAwQzUuMzk2IDAgLjAyOSA1LjM2Ny4wMjkgMTEuOTg3YzAgNS4wNzkgMy4xNTggOS40MTcgNy42MTggMTEuMTYyLS4xMDUtLjk0OS0uMTk5LTIuNDAzLjA0MS0zLjQzOS4yMTktLjkzNyAxLjQwNi01Ljk1NyAxLjQwNi01Ljk1N3MtLjM1OS0uNzItLjM1OS0xLjc4MWMwLTEuNjYzLjk2Ny0yLjkxMSAyLjE2OC0yLjkxMSAxLjAyNCAwIDEuNTE4Ljc2OSAxLjUxOCAxLjY4OCAwIDEuMDI5LS42NTMgMi41NjctLjk5MiAzLjk5Mi0uMjg1IDEuMTkzLjYgMi4xNjUgMS43NzUgMi4xNjUgMi4xMjggMCAzLjc2OC0yLjI0NSAzLjc2OC01LjQ4NyAwLTIuODYxLTIuMDYzLTQuODY5LTUuMDA4LTQuODY5LTMuNDEgMC01LjQwOSAyLjU2Mi01LjQwOSA1LjE5OSAwIC4xMDMuMDEzLjIwMy4wMjUuMzA1LS4wMTIuMTAzLS4wMjUuMjA0LS4wMjUuMzA3IDAgLjY0NC4xNzEgMS4xMzIuMzg5IDEuNDkzLjA0My4wNjMuMDQ4LjExOC4wMzcuMTg3LS4wMzcuMTYzLS4xMjIuNTYyLS4xMzcuNjI2LS4wMjUuMTEyLS4wODYuMTM3LS4xOTcuMDgyQzguNzUgMTYuNDk4IDcuNzY2IDE0LjE1NCA3Ljc2NiAxMi4yNGMwLTMuNTU2IDIuNTgtNy4xMDMgNy40NzQtNy4xMDMgMy45MzIgMCA2Ljk5OSAyLjgxMyA2Ljk5OSA2LjU2MyAwIDMuOTEyLTIuNDYgNy4wMTItNS44NjkgNy4wMTItMS4xNDIgMC0yLjIxNi0uNTk1LTIuNTg0LTEuMjkzIDAgMC0uNTY1IDIuMTY1LS43MDQgMi42OTMtLjI1Ny45NzctLjk0OSAxLjk1Ni0xLjQxMyAyLjYwOSAxLjA2Mi4zMjcgMi4xOTQuNTA0IDMuMzYuNTA0IDYuNjI3IDAgMTIuMDA4LTUuMzY5IDEyLjAwOC0xMS45ODZDMjQuMDI1IDUuMzY3IDE4LjY0MiAwIDEyLjAxNyAweiIvPjwvc3ZnPg==' 
+    },
+  ];
   
+  // Calculate platform account counts and filtered accounts
+  const accountsByPlatform = socialChannels.reduce((acc, channel) => {
+    acc[channel.value] = userAccounts.filter(account => account.platform === channel.value);
+    return acc;
+  }, {} as Record<string, SocialAccount[]>);
+  
+  // Get accounts for the active platform
+  const filteredAccounts = accountsByPlatform[activePlatform] || [];
+
   return (
-    <div className={cn("bg-white rounded-lg shadow-sm p-4 md:p-6", className)}>
+    <div className={cn("bg-white rounded-lg shadow-sm p-6", className)}>
       {/* Header with time filters */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 sm:gap-0">
         <h2 className="text-lg font-medium text-gray-800">Channel Analytics</h2>
@@ -335,9 +240,9 @@ export const ChannelAnalytics: React.FC<ChannelAnalyticsProps> = ({ className })
             <button
               key={filter}
               className={cn(
-                "px-2 sm:px-4 py-1 text-xs sm:text-sm rounded-md custom-date-filter",
-                filter === activeTimeFilter
-                  ? "bg-blue-600 text-white"
+                "px-3 py-1.5 text-sm rounded-md",
+                activeTimeFilter === filter
+                  ? "bg-blue-100 text-blue-700 font-medium"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               )}
               onClick={() => handleTimeFilterClick(filter)}
@@ -346,63 +251,40 @@ export const ChannelAnalytics: React.FC<ChannelAnalyticsProps> = ({ className })
             </button>
           ))}
           
-          {/* Custom date range picker */}
+          {/* Custom date picker (conditionally rendered) */}
           {showDatePicker && (
             <div 
               ref={datePickerRef}
-              className="absolute top-full right-0 mt-2 bg-white shadow-lg rounded-md border border-gray-200 p-4 z-20 w-80"
+              className="absolute top-full right-0 mt-2 p-4 bg-white rounded-lg shadow-lg z-10 border border-gray-200"
             >
-              <div className="mb-4">
-                <label 
-                  htmlFor="startDate" 
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Start Date
-                </label>
+              <div className="flex flex-col space-y-2 mb-3">
+                <label className="text-sm text-gray-600">Start Date</label>
                 <input 
-                  id="startDate"
                   type="date" 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="border border-gray-300 rounded-md p-2"
                   value={customDateRange.startDate.toISOString().split('T')[0]}
                   onChange={(e) => setCustomDateRange(prev => ({
                     ...prev,
                     startDate: new Date(e.target.value)
                   }))}
-                  max={new Date().toISOString().split('T')[0]}
                 />
               </div>
-              
-              <div className="mb-4">
-                <label 
-                  htmlFor="endDate" 
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  End Date
-                </label>
+              <div className="flex flex-col space-y-2 mb-4">
+                <label className="text-sm text-gray-600">End Date</label>
                 <input 
-                  id="endDate"
                   type="date" 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="border border-gray-300 rounded-md p-2"
                   value={customDateRange.endDate.toISOString().split('T')[0]}
                   onChange={(e) => setCustomDateRange(prev => ({
                     ...prev,
                     endDate: new Date(e.target.value)
                   }))}
-                  min={customDateRange.startDate.toISOString().split('T')[0]}
-                  max={new Date().toISOString().split('T')[0]}
                 />
               </div>
-              
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end">
                 <button 
-                  className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                  onClick={() => setShowDatePicker(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  className="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                  onClick={() => handleDateRangeSelect(customDateRange.startDate, customDateRange.endDate)}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                  onClick={() => handleDateRangeSelect(customDateRange)}
                 >
                   Apply
                 </button>
@@ -412,192 +294,168 @@ export const ChannelAnalytics: React.FC<ChannelAnalyticsProps> = ({ className })
         </div>
       </div>
       
-      {/* Display selected time period */}
-      {activeTimeFilter === 'Custom' && (
-        <div className="mb-4 text-sm text-gray-600">
-          <span className="font-medium">Selected period: </span>
-          {formatDate(customDateRange.startDate)} - {formatDate(customDateRange.endDate)}
-        </div>
-      )}
-      
+      {/* Account selector and platform tabs */}
       <div className="mb-6">
-        {/* Account selection dropdown */}
-        <div className="relative" ref={dropdownRef}>
-          <button
-            type="button"
-            className="flex items-center w-full space-x-2 mb-4 cursor-pointer hover:bg-gray-50 p-2 rounded-md text-left"
-            onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setIsAccountDropdownOpen(!isAccountDropdownOpen);
-              }
-            }}
-            aria-expanded={isAccountDropdownOpen}
-            aria-haspopup="true"
-          >
-            {selectedAccount && (
-              <>
-                <img
-                  src={selectedAccount.profileImage}
-                  alt={selectedAccount.name}
-                  className="w-8 h-8 rounded-full"
-                />
-                <div className="flex flex-col">
-                  <span className="text-base font-medium">{selectedAccount.name}</span>
-                  <span className="text-xs text-gray-500">{selectedAccount.handle}</span>
-                </div>
-              </>
-            )}
-            <span className="ml-auto">
-              <svg 
-                className={cn(
-                  "w-5 h-5 text-gray-400 transition-transform duration-200",
-                  isAccountDropdownOpen && "transform rotate-180"
-                )} 
-                viewBox="0 0 20 20" 
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </span>
-          </button>
-          
-          {/* Dropdown menu */}
-          {isAccountDropdownOpen && (
-            <div 
-              className="absolute z-10 left-0 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg py-1"
-            >
-              <div className="max-h-56 overflow-y-auto">
-                <select
-                  className="absolute opacity-0 h-0 w-0 overflow-hidden"
-                  value={selectedAccount?.id ?? ''}
-                  onChange={(e) => {
-                    const selected = filteredAccounts.find(acc => acc.id === e.target.value);
-                    if (selected) handleAccountSelect(selected);
-                  }}
-                  aria-label="Select account"
-                  size={Math.min(filteredAccounts.length, 5)}
-                >
-                  {filteredAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>{account.name}</option>
-                  ))}
-                </select>
-                
-                {filteredAccounts.length > 0 ? (
-                  filteredAccounts.map((account) => (
-                    <button 
-                      key={account.id}
-                      className={cn(
-                        "flex items-center w-full text-left px-4 py-2 hover:bg-gray-50 cursor-pointer",
-                        selectedAccount?.id === account.id && "bg-blue-50"
-                      )}
-                      onClick={() => handleAccountSelect(account)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleAccountSelect(account);
-                        }
-                      }}
-                      aria-selected={selectedAccount?.id === account.id}
-                    >
-                      <img 
-                        src={account.profileImage} 
-                        alt={account.name} 
-                        className="w-6 h-6 rounded-full mr-3" 
-                      />
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{account.name}</span>
-                        <span className="text-xs text-gray-500">{account.handle}</span>
-                      </div>
-                    </button>
-                  ))
-                ) : (
-                  <div className="px-4 py-2 text-sm text-gray-500">
-                    No accounts found for this platform
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-        
-        {/* Social channel tabs */}
-        <div className="flex border-b border-gray-200 mb-6">
+        <div className="flex mb-4 border-b border-gray-200">
           {socialChannels.map((channel) => (
             <button
-              key={channel.name}
+              key={channel.value}
               className={cn(
-                "flex-1 py-3 flex justify-center",
-                channel.value === activePlatform && "border-b-2 border-blue-500"
+                "px-4 py-2 text-sm font-medium border-b-2 -mb-px",
+                activePlatform === channel.value
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               )}
               onClick={() => handlePlatformChange(channel.value)}
             >
-              <img src={channel.icon} alt={channel.name} className="w-6 h-6" />
+              <img 
+                src={channel.icon} 
+                alt={channel.name} 
+                className="w-4 h-4 inline mr-2" 
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.onerror = null;
+                  target.src = channel.fallbackIcon;
+                }}
+              />
+              {channel.name}
+              {accountsByPlatform[channel.value]?.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs bg-gray-100 text-gray-700 rounded-full">
+                  {accountsByPlatform[channel.value].length}
+                </span>
+              )}
             </button>
           ))}
         </div>
         
-        {/* Account platform and handle display */}
-        {selectedAccount && (
-          <div className="flex items-center mb-8">
-            <img src={selectedAccount.platformIcon} alt={selectedAccount.platform} className="w-5 h-5 mr-2" />
-            <span className="text-sm text-gray-600">{selectedAccount.handle}</span>
+        {/* Account dropdown */}
+        <div className="relative" ref={dropdownRef}>
+          <div className="text-sm text-gray-600 mb-4">
+            Select a social media account
           </div>
-        )}
-        
-        {/* Metrics grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-6 relative">
-          {isLoading ? (
-            <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+          <div 
+            className="flex items-center space-x-2 border p-2 rounded-md w-full cursor-pointer hover:bg-gray-50"
+            onClick={toggleAccountDropdown}
+          >
+            {selectedAccount ? (
+              <>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white overflow-hidden ${getPlatformColor(selectedAccount.platform)}`}>
+                  {selectedAccount.profileImage ? (
+                    <img 
+                      src={selectedAccount.profileImage} 
+                      alt={selectedAccount.name} 
+                      className="w-full h-full object-cover" 
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedAccount.name)}&background=random`;
+                      }}
+                    />
+                  ) : (
+                    getPlatformIcon(selectedAccount.platform)
+                  )}
+                </div>
+                <div className="flex-grow">
+                  <div className="font-medium">{selectedAccount.name}</div>
+                  <div className="text-xs text-gray-500">{selectedAccount.handle || selectedAccount.platform}</div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </div>
+                <div className="flex-grow text-gray-500">Select an account</div>
+              </>
+            )}
+            <div className="text-gray-400">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isAccountDropdownOpen ? 'transform rotate-180' : ''}><path d="m6 9 6 6 6-6"/></svg>
             </div>
-          ) : null}
+          </div>
           
-          {metrics.map((metric) => (
-            <div key={metric.label} className="text-center p-2 sm:p-0">
-              <h3 className="text-lg sm:text-2xl font-bold text-gray-800">{metric.value}</h3>
-              <p className="text-xs sm:text-sm text-gray-600 mt-1">{metric.label}</p>
+          {/* Dropdown menu */}
+          {isAccountDropdownOpen && (
+            <div className="absolute top-full left-0 mt-1 w-full bg-white border rounded-md shadow-lg z-20">
+              {filteredAccounts.length > 0 ? (
+                filteredAccounts.map((account) => (
+                  <div 
+                    key={account.id}
+                    className={`flex items-center space-x-2 p-3 hover:bg-gray-50 cursor-pointer ${account.id === selectedAccount?.id ? 'bg-blue-50' : ''}`}
+                    onClick={() => handleAccountSelect(account)}
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white overflow-hidden ${getPlatformColor(account.platform)}`}>
+                      {account.profileImage ? (
+                        <img 
+                          src={account.profileImage} 
+                          alt={account.name} 
+                          className="w-full h-full object-cover" 
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(account.name)}&background=random`;
+                          }}
+                        />
+                      ) : (
+                        getPlatformIcon(account.platform)
+                      )}
+                    </div>
+                    <div className="flex-grow">
+                      <div className="font-medium">{account.name}</div>
+                      <div className="text-xs text-gray-500">{account.handle || `${account.platform} Account`}</div>
+                    </div>
+                    {account.id === selectedAccount?.id && (
+                      <div className="text-blue-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="p-3 text-center text-gray-500">
+                  No accounts found for this platform
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Metrics display */}
+      {isLoading ? (
+        <div className="flex justify-center py-10">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {metrics.map((metric, index) => (
+            <div key={index} className="bg-gray-50 rounded-lg p-4">
+              <div className="text-sm text-gray-500 mb-1">{metric.label}</div>
+              <div className="text-2xl font-bold text-gray-800">{metric.value}</div>
               {metric.change && (
-                <p className={cn(
-                  "text-xs mt-1 flex items-center justify-center",
+                <div className={cn(
+                  "text-xs flex items-center mt-1",
                   metric.isPositive ? "text-green-600" : "text-red-600"
                 )}>
                   <span className="mr-1">
                     {metric.isPositive ? (
                       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M12 7a1 1 0 01-1 1H9v9a1 1 0 01-2 0V8H6a1 1 0 01-1-1c0-.297.132-.578.358-.769l3-2.5a1 1 0 011.284 0l3 2.5A1 1 0 0112 7z" clipRule="evenodd" />
                       </svg>
                     ) : (
                       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M12 13a1 1 0 01-1-1V3a1 1 0 112 0v9h1a1 1 0 110 2h-2z" clipRule="evenodd" />
                       </svg>
                     )}
                   </span>
-                  <span className="font-medium">{metric.change}</span>
-                  <span className="text-gray-500 ml-1">{metric.changeLabel}</span>
-                </p>
+                  {metric.change} {metric.changeLabel && <span className="text-gray-500 ml-1">{metric.changeLabel}</span>}
+                </div>
               )}
             </div>
           ))}
         </div>
-      </div>
-      
-      {/* 
-        Backend implementation notes:
-        1. Replace the mock userAccounts array with a fetch call to your API endpoint
-        2. Implement proper APIs to fetch accounts filtered by platform
-        3. Create API endpoints for fetching metrics based on:
-           - selected account
-           - active time filter (today, this week, this month, custom date range)
-        4. For the date picker, properly sanitize and validate date inputs
-        5. The loadingState should be tied to real API request status
-        6. Add error handling for failed API requests
-        7. Consider implementing caching for frequently accessed metrics
-      */}
+      )}
     </div>
   );
 };
 
-export default ChannelAnalytics; 
+export default ChannelAnalytics;

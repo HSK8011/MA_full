@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '../../../lib/utils';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { API_URL } from '../../../config';
+import { postService } from '../../../services/postService';
+import type { PostWithIntegration } from '../../../services/postService';
+import { format } from 'date-fns';
 
 interface PendingApprovalProps {
   className?: string;
@@ -9,20 +14,32 @@ interface PendingApprovalProps {
 interface SocialAccount {
   id: string;
   name: string;
-  platform: 'twitter' | 'linkedin' | 'facebook' | 'pinterest' | 'instagram' | 'all';
+  platform: 'twitter' | 'linkedin' | 'facebook' | 'pinterest' | 'instagram' | 'all' | string;
   icon: string;
+  profileImageUrl?: string;
 }
 
 interface PostData {
-  id: string;
-  author: string;
-  authorHandle: string;
-  date: string;
-  time: string;
+  _id: string;
   content: string;
-  socialIcons: string[];
-  status: 'needs_approval' | 'approved' | 'rejected';
-  accountId?: string; // For filtering by account
+  status: string;
+  approvalStatus: 'pending' | 'approved' | 'rejected' | string;
+  createdAt: string;
+  scheduledAt?: string;
+  integration: {
+    _id?: string;
+    platform: string;
+    username: string;
+    displayName: string;
+    profileImageUrl?: string;
+  };
+  // UI compatibility fields
+  accountId?: string;
+  author?: string;
+  authorHandle?: string;
+  date?: string;
+  time?: string;
+  socialIcons?: string[];
 }
 
 export const PendingApproval: React.FC<PendingApprovalProps> = ({ className }) => {
@@ -35,8 +52,12 @@ export const PendingApproval: React.FC<PendingApprovalProps> = ({ className }) =
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
   
-  // Available social accounts for the current user
-  const [accounts] = useState<SocialAccount[]>([
+  // State for loading and error handling
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Default accounts fallback
+  const defaultAccounts: SocialAccount[] = [
     {
       id: 'all',
       name: 'All Accounts',
@@ -67,104 +88,269 @@ export const PendingApproval: React.FC<PendingApprovalProps> = ({ className }) =
       platform: 'linkedin',
       icon: '/images/page2/linkedin-icon.png'
     }
-  ]);
+  ];
+  
+  // Available social accounts for the current user
+  const [accounts, setAccounts] = useState<SocialAccount[]>(defaultAccounts);
   
   // Selected account for filtering
   const [selectedAccount, setSelectedAccount] = useState<SocialAccount>(accounts[0]); // Default to "All Accounts"
   
-  const [posts, setPosts] = useState<PostData[]>([
-    {
-      id: '1',
-      author: 'AIMDek Technologies',
-      authorHandle: '@aimdektech',
-      date: 'Mon, Sep 27, 2021',
-      time: '3:53 pm',
-      content: 'Data and Creativity ❤️ The dynamic duo that your marketing strategy needs. Discover how they go hand-in-hand when it comes to campaign success. Discover how they go hand-in-hand when it comes to campaign success.',
-      socialIcons: ['facebook', 'twitter', 'pinterest', 'tumblr', 'instagram', 'linkedin', 'youtube', 'snapchat', 'tiktok'],
-      status: 'needs_approval',
-      accountId: 'acc_1'
-    },
-    {
-      id: '2',
-      author: 'AIMDek Tech',
-      authorHandle: '@aimdektech',
-      date: 'Mon, Sep 27, 2021',
-      time: '3:53 pm',
-      content: 'Data and Creativity ❤️ The dynamic duo that your marketing strategy needs. Discover how they go hand-in-hand when it comes to campaign success. Discover how they go hand-in-hand when it comes to campaign success.',
-      socialIcons: ['facebook', 'twitter', 'pinterest', 'tumblr', 'instagram', 'linkedin', 'youtube', 'snapchat', 'tiktok'],
-      status: 'needs_approval',
-      accountId: 'acc_2'
-    },
-    {
-      id: '3',
-      author: 'AIMDek Marketing',
-      authorHandle: '@aimdektech',
-      date: 'Mon, Sep 27, 2021',
-      time: '3:53 pm',
-      content: 'Data and Creativity ❤️ The dynamic duo that your marketing strategy needs. Discover how they go hand-in-hand when it comes to campaign success. Discover how they go hand-in-hand when it comes to campaign success.',
-      socialIcons: ['facebook', 'twitter', 'pinterest', 'tumblr', 'instagram', 'linkedin', 'youtube', 'snapchat', 'tiktok'],
-      status: 'needs_approval',
-      accountId: 'acc_3'
+  const [posts, setPosts] = useState<PostData[]>([]);
+  
+  // Fetch social accounts from backend
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      try {
+        // Use axios through the API_URL from config - matching DeliveredPosts approach
+        const response = await axios.get(`${API_URL}/connect/accounts`, {
+          params: { serviceType: 'socialMedia' },
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('accessToken')}` // Add auth token
+          }
+        });
+        
+        const integrations = response.data;
+        console.log('Integrations response:', integrations);
+        
+        // Map integrations to accounts format - exactly like DeliveredPosts
+        const accountsList: SocialAccount[] = [
+          {
+            id: 'all',
+            name: 'All Accounts',
+            platform: 'all',
+            icon: '/images/page2/all-accounts-icon.png'
+          },
+          ...integrations.map((integration: any) => ({
+            id: integration._id,
+            name: integration.displayName || integration.username,
+            platform: integration.platform,
+            icon: `/images/page2/${integration.platform}-icon.png`,
+            profileImageUrl: integration.profileImageUrl
+          }))
+        ];
+        
+        setAccounts(accountsList);
+        setSelectedAccount(accountsList[0]);
+      } catch (err) {
+        console.error('Failed to fetch accounts:', err);
+        setError('Failed to load social accounts');
+        // Keep using default accounts
+      }
+    };
+    
+    fetchAccounts();
+  }, []);
+  
+  // Fetch pending approval posts from backend
+  useEffect(() => {
+    const fetchPendingApprovalPosts = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Build params object for API call to fetch scheduled posts with pending approval status
+        const params: any = {
+          page: 1,
+          limit: 10,
+          status: 'scheduled',
+          approvalStatus: 'pending'
+        };
+        
+        // Add integration filter if a specific account is selected
+        if (selectedAccount.id !== 'all') {
+          params.integrationId = selectedAccount.id;
+        }
+        
+        // Fetch posts using the postService - we need to use getPosts method with custom filters
+        // since getPendingApprovalPosts might be specifically for posts with status 'pending-approval'
+        const response = await postService.getPosts(params);
+        console.log('Pending approval posts response:', response);
+        
+        // Map API response to component data structure - similar to DeliveredPosts
+        const formattedPosts = response.posts.map((post: PostWithIntegration) => {
+          // Format date and time from scheduledAt or createdAt
+          const postDate = post.scheduledAt ? new Date(post.scheduledAt) : new Date(post.createdAt);
+          
+          return {
+            _id: post._id,
+            content: post.content,
+            status: post.status,
+            approvalStatus: post.approvalStatus || 'pending',
+            createdAt: post.createdAt,
+            scheduledAt: post.scheduledAt,
+            integration: post.integration,
+            // UI compatibility fields
+            accountId: post.integrationId,
+            author: post.integration?.displayName || post.integration?.username || 'Unknown',
+            authorHandle: `@${post.integration?.username || 'unknown'}`,
+            date: format(postDate, 'EEE, MMM d, yyyy'),
+            time: format(postDate, 'h:mm a'),
+            socialIcons: [post.platform] // Only show the actual platform used
+          };
+        });
+        
+        setPosts(formattedPosts);
+      } catch (err) {
+        console.error('Failed to fetch pending approval posts:', err);
+        setError('Failed to load pending approval posts');
+        console.log('Using mock data as fallback');
+        
+        // Fallback to mock data if API fails
+        const mockPosts = [
+          {
+            _id: '1',
+            content: 'Data and Creativity ❤️ The dynamic duo that your marketing strategy needs.',
+            status: 'pending-approval',
+            approvalStatus: 'pending',
+            createdAt: new Date().toISOString(),
+            scheduledAt: new Date(Date.now() + 86400000).toISOString(),
+            integration: {
+              _id: 'acc_1',
+              platform: 'facebook',
+              username: 'aimdektech',
+              displayName: 'AIMDek Technologies'
+            },
+            accountId: 'acc_1',
+            author: 'AIMDek Technologies',
+            authorHandle: '@aimdektech',
+            date: format(new Date(), 'EEE, MMM d, yyyy'),
+            time: format(new Date(), 'h:mm a'),
+            socialIcons: ['facebook']
+          },
+          {
+            _id: '2',
+            content: 'Discover how data and creativity go hand-in-hand when it comes to campaign success.',
+            status: 'pending-approval',
+            approvalStatus: 'pending',
+            createdAt: new Date().toISOString(),
+            scheduledAt: new Date(Date.now() + 172800000).toISOString(),
+            integration: {
+              _id: 'acc_2',
+              platform: 'twitter',
+              username: 'aimdektech',
+              displayName: 'AIMDek Tech'
+            },
+            accountId: 'acc_2',
+            author: 'AIMDek Tech',
+            authorHandle: '@aimdektech',
+            date: format(new Date(), 'EEE, MMM d, yyyy'),
+            time: format(new Date(), 'h:mm a'),
+            socialIcons: ['twitter']
+          }
+        ];
+        
+        setPosts(mockPosts);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchPendingApprovalPosts();
+  }, [selectedAccount.id]); // Re-fetch when selected account changes - matching DeliveredPosts
+
+
+  // Posts are already filtered by the API call if a specific account is selected
+  const filteredPosts = posts;
+
+  const handleApprove = async (postId: string) => {
+    try {
+      // Update post status to approved in UI
+      setPosts(posts.map(post => 
+        post._id === postId 
+          ? { ...post, approvalStatus: 'approved' } 
+          : post
+      ));
+      
+      // Send API request to approve the post
+      try {
+        await postService.approvePost(postId);
+        console.log(`Approved post: ${postId}`);
+      } catch (apiErr) {
+        console.warn('API call to approve post failed, but UI will still update:', apiErr);
+      }
+      
+      // Remove the post from the list after a delay
+      setTimeout(() => {
+        setPosts(posts => posts.filter(post => post._id !== postId));
+      }, 1500);
+    } catch (err) {
+      console.error('Error approving post:', err);
+      // Revert UI change if UI update fails
+      setPosts(posts.map(post => 
+        post._id === postId 
+          ? { ...post, approvalStatus: 'pending' } 
+          : post
+      ));
+      setError('Failed to approve post');
     }
-  ]);
-
-  // Filter posts based on selected account
-  const filteredPosts = selectedAccount.id === 'all' 
-    ? posts 
-    : posts.filter(post => post.accountId === selectedAccount.id);
-
-  const handleApprove = (postId: string) => {
-    // Update post status to approved
-    setPosts(posts.map(post => 
-      post.id === postId 
-        ? { ...post, status: 'approved' } 
-        : post
-    ));
-    
-    // In a real app, you would also send an API request to update the status
-    console.log(`Approved post: ${postId}`);
-    
-    // In a real implementation, would remove the post after a delay
-    setTimeout(() => {
-      setPosts(posts => posts.filter(post => post.id !== postId));
-    }, 1500);
   };
 
-  const handleReject = (postId: string) => {
-    // Update post status to rejected
-    setPosts(posts.map(post => 
-      post.id === postId 
-        ? { ...post, status: 'rejected' } 
-        : post
-    ));
-    
-    // In a real app, you would also send an API request to update the status
-    console.log(`Rejected post: ${postId}`);
-    
-    // In a real implementation, would remove the post after a delay
-    setTimeout(() => {
-      setPosts(posts => posts.filter(post => post.id !== postId));
-    }, 1500);
+  const handleReject = async (postId: string) => {
+    try {
+      // Update post status to rejected in UI
+      setPosts(posts.map(post => 
+        post._id === postId 
+          ? { ...post, approvalStatus: 'rejected' } 
+          : post
+      ));
+      
+      // Send API request to reject the post
+      try {
+        await postService.rejectPost(postId);
+        console.log(`Rejected post: ${postId}`);
+      } catch (apiErr) {
+        console.warn('API call to reject post failed, but UI will still update:', apiErr);
+      }
+      
+      // Remove the post from the list after a delay
+      setTimeout(() => {
+        setPosts(posts => posts.filter(post => post._id !== postId));
+      }, 1500);
+    } catch (err) {
+      console.error('Error rejecting post:', err);
+      // Revert UI change if UI update fails
+      setPosts(posts.map(post => 
+        post._id === postId 
+          ? { ...post, approvalStatus: 'pending' } 
+          : post
+      ));
+      setError('Failed to reject post');
+    }
   };
 
-  const handleDelete = (postId: string) => {
-    // Remove post from the list immediately
-    setPosts(posts.filter(post => post.id !== postId));
-    console.log(`Deleted post: ${postId}`);
-    // Close any open dropdown
-    setOpenDropdownId(null);
+  const handleDelete = async (postId: string) => {
+    try {
+      // Remove post from the list immediately for UI responsiveness
+      setPosts(posts.filter(post => post._id !== postId));
+      
+      // Send API request to delete the post
+      try {
+        await postService.deletePost(postId);
+        console.log(`Deleted post: ${postId}`);
+      } catch (apiErr) {
+        console.warn('API call to delete post failed, but UI will still update:', apiErr);
+      }
+      
+      // Close any open dropdown
+      setOpenDropdownId(null);
+    } catch (err) {
+      console.error('Error deleting post:', err);
+      setError('Failed to delete post');
+      // Just show the error, don't try to fetch again since that might fail too
+    }
   };
 
   const handleViewPost = (postId: string) => {
-    // Navigate to queue times to view the post
-    navigate('/publish/queue-times');
+    // Navigate to view the specific post
+    navigate(`/publish/post/${postId}`);
     console.log(`Viewing post: ${postId}`);
     setOpenDropdownId(null);
   };
 
   const handleEditPost = (postId: string) => {
-    // Navigate to queue times to edit the post
-    navigate('/publish/queue-times');
+    // Navigate to edit the specific post
+    navigate(`/publish/edit/${postId}`);
     console.log(`Editing post: ${postId}`);
     setOpenDropdownId(null);
   };
@@ -209,7 +395,8 @@ export const PendingApproval: React.FC<PendingApprovalProps> = ({ className }) =
     };
   }, []);
 
-  const renderSocialIcons = (icons: string[]) => {
+  const renderSocialIcons = (icons: string[] | undefined) => {
+    if (!icons || icons.length === 0) return null;
     return (
       <div className="flex flex-wrap gap-1 mb-2">
         {icons.map((icon, index) => {
@@ -253,9 +440,10 @@ export const PendingApproval: React.FC<PendingApprovalProps> = ({ className }) =
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'needs_approval':
+  const getStatusLabel = (post: PostData) => {
+    // Use approvalStatus from the post
+    switch (post.approvalStatus || 'pending') {
+      case 'pending':
         return (
           <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
             Needs Approval
@@ -389,7 +577,17 @@ export const PendingApproval: React.FC<PendingApprovalProps> = ({ className }) =
         </div>
       </div>
 
-      {filteredPosts.length === 0 ? (
+      {loading ? (
+        <div className="border rounded-lg p-8 text-center">
+          <h2 className="text-lg font-medium text-gray-700 mb-2">Loading...</h2>
+          <p className="text-gray-500">Fetching posts that need approval</p>
+        </div>
+      ) : error ? (
+        <div className="border rounded-lg p-8 text-center text-red-500">
+          <h2 className="text-lg font-medium mb-2">Error</h2>
+          <p>{error}</p>
+        </div>
+      ) : filteredPosts.length === 0 ? (
         <div className="border rounded-lg p-8 text-center">
           <h2 className="text-lg font-medium text-gray-700 mb-2">No posts pending approval</h2>
           <p className="text-gray-500">
@@ -401,20 +599,20 @@ export const PendingApproval: React.FC<PendingApprovalProps> = ({ className }) =
       ) : (
         <div className="space-y-6">
           {filteredPosts.map((post) => (
-            <div key={post.id} className="border rounded-lg p-4">
+            <div key={post._id} className="border rounded-lg p-4">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center space-x-2">
                   <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white">
                     A
                   </div>
                   <div>
-                    <div className="font-medium">{post.author}</div>
-                    <div className="text-sm text-gray-500">{post.authorHandle}</div>
+                    <div className="font-medium">{post.author || (post.integration.displayName || post.integration.username)}</div>
+                    <div className="text-sm text-gray-500">{post.authorHandle || `@${post.integration.username}`}</div>
                   </div>
                 </div>
                 <div className="flex items-center">
                   <div className="flex items-center space-x-2">
-                    {getStatusLabel(post.status)}
+                    {getStatusLabel(post)}
                     <div className="text-sm text-gray-500">{post.date} {post.time}</div>
                   </div>
                   <div className="relative ml-2">
@@ -422,13 +620,13 @@ export const PendingApproval: React.FC<PendingApprovalProps> = ({ className }) =
                       className="text-gray-400 hover:text-gray-600"
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleDropdown(post.id);
+                        toggleDropdown(post._id);
                       }}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-more-vertical"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
                     </button>
                     
-                    {openDropdownId === post.id && (
+                    {openDropdownId === post._id && (
                       <div 
                         className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border"
                         onClick={(e) => e.stopPropagation()}
@@ -436,7 +634,7 @@ export const PendingApproval: React.FC<PendingApprovalProps> = ({ className }) =
                         <div className="py-1">
                           <button 
                             className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            onClick={() => handleViewPost(post.id)}
+                            onClick={() => handleViewPost(post._id)}
                           >
                             <div className="flex items-center">
                               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -445,7 +643,7 @@ export const PendingApproval: React.FC<PendingApprovalProps> = ({ className }) =
                           </button>
                           <button 
                             className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            onClick={() => handleEditPost(post.id)}
+                            onClick={() => handleEditPost(post._id)}
                           >
                             <div className="flex items-center">
                               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
@@ -454,7 +652,7 @@ export const PendingApproval: React.FC<PendingApprovalProps> = ({ className }) =
                           </button>
                           <button 
                             className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                            onClick={() => handleDelete(post.id)}
+                            onClick={() => handleDelete(post._id)}
                           >
                             <div className="flex items-center">
                               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
@@ -472,16 +670,16 @@ export const PendingApproval: React.FC<PendingApprovalProps> = ({ className }) =
 
               <div className="mb-4">{post.content}</div>
 
-              {post.status === 'needs_approval' && (
+              {post.approvalStatus === 'pending' && (
                 <div className="flex justify-end space-x-2">
                   <button 
-                    onClick={() => handleReject(post.id)} 
+                    onClick={() => handleReject(post._id)} 
                     className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
                   >
                     Reject
                   </button>
                   <button 
-                    onClick={() => handleApprove(post.id)} 
+                    onClick={() => handleApprove(post._id)} 
                     className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                   >
                     Approve

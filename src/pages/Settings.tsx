@@ -125,7 +125,7 @@ const Settings: React.FC = () => {
   const handleUpdateNotifications = async (preferences: NotificationPreference[]) => {
     try {
       const response = await settingsService.updateNotifications(preferences);
-      setSettings(prev => prev ? { ...prev, notificationPreferences: response.notificationPreferences } : null);
+      setSettings(prev => prev ? { ...prev, notificationPreferences: response.preferences } : null);
       toast.success('Notification preferences updated');
     } catch (error) {
       console.error('Error updating notifications:', error);

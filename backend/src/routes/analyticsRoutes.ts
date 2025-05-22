@@ -7,6 +7,10 @@ const router = express.Router();
 // Apply auth middleware to all analytics routes
 router.use(authMiddleware);
 
+// Dashboard endpoints
+router.get('/dashboard', analyticsController.getDashboardData);
+router.get('/channel', analyticsController.getChannelAnalytics);
+
 // Get analytics overview for all integrations
 router.get('/', analyticsController.getAnalyticsOverview);
 
