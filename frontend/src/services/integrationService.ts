@@ -21,6 +21,19 @@ const api = axios.create({
   }
 });
 
+const scopes = [
+  "tweet.read",
+  "tweet.write",
+  "users.read",
+  "follows.read",
+  "follows.write",
+  "like.read",
+  "like.write",
+  "bookmark.read",
+  "bookmark.write",
+  "offline.access" // for refresh token support
+];
+
 // Add auth token to all requests
 api.interceptors.request.use(
   (config) => {
@@ -45,6 +58,52 @@ api.interceptors.response.use(
   }
 );
 
+const TWITTER_CLIENT_ID = 'OFNPTFowLVNuNXF1dzcwUmVOVHo6MTpjaQ';
+
+// function generateCodeVerifier(length: number = 64): string {
+//   const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+//   let result = "";
+//   const values = new Uint32Array(length);
+//   crypto.getRandomValues(values);
+//   for (let i = 0; i < length; i++) {
+//     result += charset[values[i] % charset.length];
+//   }
+//   return result;
+// }
+
+async function generateCodeChallenge(verifier: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+
+async function getTwitterOauthUrl(): Promise<string> {
+  const verifier = 'qY2N8cEjKhUapZVdG5m0sRzFJX-wt4iBLTcvMyUxe7g'
+  console.log("Getting twitter oauth url");
+  const challenge = await generateCodeChallenge(verifier);
+
+  // You must store the verifier somewhere (for use when exchanging the code for the access token)
+  sessionStorage.setItem("twitter_code_verifier", verifier);
+
+  const rootUrl = "https://twitter.com/i/oauth2/authorize";
+  const options = {
+    redirect_uri: "http://localhost:5000/api/twitter/callback",
+    client_id: TWITTER_CLIENT_ID,
+    state: "state",
+    response_type: "code",
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    scope: scopes.join(" "),
+    
+  };
+  const qs = new URLSearchParams(options).toString();
+  console.log("Generated Twitter OAuth Url:", `${rootUrl}?${qs}`);
+  return `${rootUrl}?${qs}`;
+}
+
 export const integrationService = {
   getSocialMediaIntegrations: async (): Promise<Integration[]> => {
     try {
@@ -65,13 +124,13 @@ export const integrationService = {
   connectSocialMedia: async (platform: string): Promise<void> => {
     try {
       console.log('🔄 [Integration] Initiating OAuth flow for:', platform);
-      const response = await api.post(`/accounts/${platform}/connect`);
+      // const response = await api.post(`/accounts/${platform}/connect`);
       
-      // Redirect to OAuth URL
-      if (response.data.authUrl) {
-        window.location.href = response.data.authUrl;
-      } else {
-        throw new Error('No OAuth URL received');
+      if (platform === 'twitter') {
+        const twitterAuthUrl = await getTwitterOauthUrl();
+        console.log('🔗 [Integration] Redirecting to Twitter OAuth URL:', twitterAuthUrl);
+        
+        window.location.href = twitterAuthUrl;
       }
     } catch (error) {
       console.error('❌ [Integration] Failed to initiate OAuth flow:', error);
