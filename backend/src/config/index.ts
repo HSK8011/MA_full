@@ -12,5 +12,11 @@ export const config = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
   emailUser: process.env.EMAIL_USER ?? 'noreply@example.com',
-  emailPassword: process.env.EMAIL_PASSWORD ?? 'your-email-password'
-}; 
+  emailPassword: process.env.EMAIL_PASSWORD ?? 'your-email-password',
+  // Twitter API configuration
+  twitter: {
+    clientId: process.env.TWITTER_CLIENT_ID ?? 'your-twitter-client-id',
+    clientSecret: process.env.TWITTER_CLIENT_SECRET ?? 'your-twitter-client-secret',
+    callbackUrl: process.env.TWITTER_CALLBACK_URL ?? 'http://localhost:5173/auth/twitter/callback'
+  }
+};

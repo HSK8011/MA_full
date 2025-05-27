@@ -1,6 +1,7 @@
 import express from 'express';
 import { integrationController } from '../controllers/integrationController';
 import authenticate from '../middleware/authMiddleware';
+import twitterRoutes from './twitter.routes';
 
 const router = express.Router();
 
@@ -22,4 +23,7 @@ router.post('/accounts/:integrationId/reconnect', integrationController.reconnec
 // Update integration settings
 router.patch('/accounts/:integrationId', integrationController.updateIntegrationSettings);
 
-export default router; 
+// Twitter-specific routes
+router.use('/twitter', twitterRoutes);
+
+export default router;

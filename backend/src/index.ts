@@ -9,6 +9,7 @@ import settingsRoutes from './routes/settings.routes';
 import integrationRoutes from './routes/integration.routes';
 import analyticsRoutes from './routes/analyticsRoutes';
 import postRoutes from './routes/postRoutes';
+import twitterRoutes from './routes/twitter.routes';
 
 // Load environment variables
 dotenv.config();
@@ -47,6 +48,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/connect', integrationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/twitter', twitterRoutes); 
 
 // Root route
 app.get('/', (req, res) => {
